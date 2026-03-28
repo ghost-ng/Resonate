@@ -29,20 +29,29 @@ export default function AppShell() {
   // Recording timer
   useRecordingTimer();
 
+  // Rename modal state
+  const [renameTarget, setRenameTarget] = useState<{ type: 'notebook' | 'recording'; id: number; currentName: string } | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  // New notebook modal state
+  const [showNewNotebook, setShowNewNotebook] = useState(false);
+  const [newNotebookName, setNewNotebookName] = useState('');
+
   // Listen for Ctrl+N new notebook event
   useEffect(() => {
     const handler = () => {
-      const name = prompt('Enter notebook name:');
-      if (name) createNotebook(name, '📁');
+      setNewNotebookName('');
+      setShowNewNotebook(true);
     };
     window.addEventListener('yourecord:new-notebook', handler);
     return () => window.removeEventListener('yourecord:new-notebook', handler);
-  }, [createNotebook]);
+  }, []);
 
   // Context menu
   const ctxMenu = useContextMenu();
   const deleteNotebook = useNotebookStore((s) => s.deleteNotebook);
   const updateNotebook = useNotebookStore((s) => s.updateNotebook);
+  const updateRecording = useRecordingStore((s) => s.updateRecording);
   const recordings = useRecordingStore((s) => s.recordings);
 
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => {
@@ -50,12 +59,13 @@ export default function AppShell() {
     const { type, id } = ctxMenu.target;
 
     if (type === 'notebook') {
+      const nb = useNotebookStore.getState().notebooks.find((n) => n.id === id);
       return [
         {
           label: 'Rename',
           action: () => {
-            const newName = prompt('Enter new notebook name:');
-            if (newName) updateNotebook(id, { name: newName });
+            setRenameValue(nb?.name ?? '');
+            setRenameTarget({ type: 'notebook', id, currentName: nb?.name ?? '' });
           },
         },
         { label: '', action: () => {}, separator: true },
@@ -75,11 +85,8 @@ export default function AppShell() {
         {
           label: 'Rename',
           action: () => {
-            const newTitle = prompt('Enter new recording title:', recording?.title);
-            if (newTitle) {
-              // Recording rename would go through IPC in a real implementation
-              console.log('Rename recording', id, 'to', newTitle);
-            }
+            setRenameValue(recording?.title ?? '');
+            setRenameTarget({ type: 'recording', id, currentName: recording?.title ?? '' });
           },
         },
         { label: '', action: () => {}, separator: true },
@@ -94,7 +101,23 @@ export default function AppShell() {
     }
 
     return [];
-  }, [ctxMenu.target, recordings, updateNotebook]);
+  }, [ctxMenu.target, recordings]);
+
+  const handleConfirmRename = useCallback(() => {
+    if (!renameTarget || !renameValue.trim()) return;
+    if (renameTarget.type === 'notebook') {
+      updateNotebook(renameTarget.id, { name: renameValue.trim() });
+    } else if (renameTarget.type === 'recording') {
+      updateRecording(renameTarget.id, { title: renameValue.trim() });
+    }
+    setRenameTarget(null);
+  }, [renameTarget, renameValue, updateNotebook, updateRecording]);
+
+  const handleCreateNotebook = useCallback(() => {
+    if (!newNotebookName.trim()) return;
+    createNotebook(newNotebookName.trim(), '📁');
+    setShowNewNotebook(false);
+  }, [newNotebookName, createNotebook]);
 
   // Delete confirmation modal
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: number } | null>(null);
@@ -157,6 +180,72 @@ export default function AppShell() {
           This action cannot be undone. Are you sure you want to delete this{' '}
           {deleteTarget?.type}?
         </p>
+      </Modal>
+
+      {/* Rename Modal */}
+      <Modal
+        isOpen={renameTarget !== null}
+        title={`Rename ${renameTarget?.type === 'notebook' ? 'Notebook' : 'Recording'}`}
+        onClose={() => setRenameTarget(null)}
+        footer={
+          <>
+            <button
+              className="rounded-lg px-4 py-2 text-sm text-text-muted hover:bg-surface-2"
+              onClick={() => setRenameTarget(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded-lg bg-accent px-4 py-2 text-sm text-white hover:opacity-90"
+              onClick={handleConfirmRename}
+            >
+              Rename
+            </button>
+          </>
+        }
+      >
+        <input
+          type="text"
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleConfirmRename()}
+          autoFocus
+          className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none focus:border-accent"
+          placeholder="Enter new name..."
+        />
+      </Modal>
+
+      {/* New Notebook Modal */}
+      <Modal
+        isOpen={showNewNotebook}
+        title="New Notebook"
+        onClose={() => setShowNewNotebook(false)}
+        footer={
+          <>
+            <button
+              className="rounded-lg px-4 py-2 text-sm text-text-muted hover:bg-surface-2"
+              onClick={() => setShowNewNotebook(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded-lg bg-accent px-4 py-2 text-sm text-white hover:opacity-90"
+              onClick={handleCreateNotebook}
+            >
+              Create
+            </button>
+          </>
+        }
+      >
+        <input
+          type="text"
+          value={newNotebookName}
+          onChange={(e) => setNewNotebookName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleCreateNotebook()}
+          autoFocus
+          className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none focus:border-accent"
+          placeholder="Notebook name..."
+        />
       </Modal>
     </div>
   );
