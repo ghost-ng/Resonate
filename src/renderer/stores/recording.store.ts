@@ -15,6 +15,7 @@ interface RecordingState {
   fetchTranscript: (recordingId: number) => Promise<void>;
   fetchSummary: (recordingId: number) => Promise<void>;
   updateRecording: (id: number, updates: { title?: string; notebook_id?: number | null }) => Promise<void>;
+  moveToNotebook: (recordingId: number, notebookId: number) => Promise<void>;
   deleteRecording: (id: number) => Promise<void>;
 }
 
@@ -90,6 +91,23 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
         ),
       });
     }
+  },
+
+  moveToNotebook: async (recordingId, notebookId) => {
+    try {
+      const updated = await window.electronAPI.invoke('recording:update', { id: recordingId, notebook_id: notebookId });
+      if (updated) {
+        set({ recordings: get().recordings.map(r => r.id === recordingId ? updated : r) });
+        return;
+      }
+    } catch {
+      // Fallback: update locally
+    }
+    set({
+      recordings: get().recordings.map(r =>
+        r.id === recordingId ? { ...r, notebook_id: notebookId, updated_at: new Date().toISOString() } : r
+      ),
+    });
   },
 
   deleteRecording: async (id) => {
