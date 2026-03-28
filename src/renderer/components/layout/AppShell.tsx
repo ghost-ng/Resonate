@@ -15,7 +15,13 @@ import StatusBar from './StatusBar';
 
 export default function AppShell() {
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
+  const theme = useUiStore((s) => s.theme);
   const createNotebook = useNotebookStore((s) => s.createNotebook);
+
+  // Apply theme to document root
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   // Global keyboard shortcuts
   useKeyboardShortcuts();
@@ -93,14 +99,17 @@ export default function AppShell() {
   // Delete confirmation modal
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: number } | null>(null);
 
+  const deleteRecording = useRecordingStore((s) => s.deleteRecording);
+
   const handleConfirmDelete = useCallback(() => {
     if (!deleteTarget) return;
     if (deleteTarget.type === 'notebook') {
       deleteNotebook(deleteTarget.id);
+    } else if (deleteTarget.type === 'recording') {
+      deleteRecording(deleteTarget.id);
     }
-    // Recording deletion would go through IPC in a real implementation
     setDeleteTarget(null);
-  }, [deleteTarget, deleteNotebook]);
+  }, [deleteTarget, deleteNotebook, deleteRecording]);
 
   return (
     <div className="flex h-full flex-col bg-bg">

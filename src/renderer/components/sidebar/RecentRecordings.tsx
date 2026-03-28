@@ -1,10 +1,12 @@
 import { useRecordingStore } from '../../stores/recording.store';
+import { useContextMenu } from '../../hooks/useContextMenu';
 import { formatRelativeDate, formatDurationShort } from '../../lib/formatters';
 
 export default function RecentRecordings() {
   const recordings = useRecordingStore((s) => s.recordings);
   const openTab = useRecordingStore((s) => s.openTab);
   const activeTabId = useRecordingStore((s) => s.activeTabId);
+  const ctxMenu = useContextMenu();
 
   const recent = [...recordings]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -19,6 +21,7 @@ export default function RecentRecordings() {
         <button
           key={rec.id}
           onClick={() => openTab(rec.id)}
+          onContextMenu={(e) => ctxMenu.show(e, { type: 'recording', id: rec.id })}
           className={`flex w-full flex-col gap-0.5 rounded-card px-3 py-1.5 text-left transition-colors ${
             activeTabId === rec.id
               ? 'bg-accent/15 text-accent'

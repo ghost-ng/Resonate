@@ -4,12 +4,14 @@ interface NotebookItemProps {
   count: number;
   active: boolean;
   onClick: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export default function NotebookItem({ icon, name, count, active, onClick }: NotebookItemProps) {
+export default function NotebookItem({ icon, name, count, active, onClick, onContextMenu }: NotebookItemProps) {
   return (
     <button
       onClick={onClick}
+      onContextMenu={onContextMenu}
       className={`flex w-full items-center gap-2 rounded-card px-3 py-1.5 text-left text-sm transition-colors ${
         active
           ? 'bg-accent/15 text-accent'

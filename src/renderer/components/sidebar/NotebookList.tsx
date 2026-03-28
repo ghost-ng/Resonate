@@ -1,5 +1,6 @@
 import { useNotebookStore } from '../../stores/notebook.store';
 import { useRecordingStore } from '../../stores/recording.store';
+import { useContextMenu } from '../../hooks/useContextMenu';
 import { ALL_RECORDINGS_ID } from '../../lib/constants';
 import NotebookItem from './NotebookItem';
 
@@ -8,6 +9,7 @@ export default function NotebookList() {
   const selectedId = useNotebookStore((s) => s.selectedNotebookId);
   const setSelected = useNotebookStore((s) => s.setSelectedNotebookId);
   const recordings = useRecordingStore((s) => s.recordings);
+  const ctxMenu = useContextMenu();
 
   const totalCount = recordings.length;
 
@@ -35,6 +37,7 @@ export default function NotebookList() {
           count={getCount(nb.id)}
           active={selectedId === nb.id}
           onClick={() => setSelected(nb.id)}
+          onContextMenu={(e) => ctxMenu.show(e, { type: 'notebook', id: nb.id })}
         />
       ))}
     </div>

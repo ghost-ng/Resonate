@@ -59,6 +59,17 @@
   100% { transform: translateY(0); opacity: 1; }
 }
 
+/* Light mode overrides */
+html[data-theme="light"] {
+  --color-bg: hsl(228, 20%, 97%);
+  --color-surface: hsl(228, 18%, 93%);
+  --color-surface-2: hsl(228, 16%, 89%);
+  --color-surface-3: hsl(228, 14%, 85%);
+  --color-border: hsl(228, 12%, 80%);
+  --color-text: #1a1d27;
+  --color-text-muted: #5a5f78;
+}
+
 /* Base styles */
 html, body, #root {
   height: 100%;
