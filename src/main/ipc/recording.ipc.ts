@@ -5,6 +5,9 @@ import type { Recording } from '../../shared/types/database.types';
 export function registerRecordingHandlers(services: ServiceContainer): void {
   const { recordings, audioCapture } = services;
 
+  // Track which recording ID is currently being captured
+  let activeRecordingId: number | null = null;
+
   ipcMain.handle('recording:list', (_, args?: { notebookId?: number; search?: string }) => {
     if (args?.search) {
       return recordings.search(args.search);
@@ -30,11 +33,25 @@ export function registerRecordingHandlers(services: ServiceContainer): void {
 
   ipcMain.handle('recording:start-capture', async (_, args: { recordingId: number }) => {
     await audioCapture.startRecording(args.recordingId);
+    activeRecordingId = args.recordingId;
     recordings.update(args.recordingId, { status: 'recording' });
   });
 
   ipcMain.handle('recording:stop-capture', async () => {
     const result = await audioCapture.stopRecording();
-    return result;
+
+    // Update the DB record with the audio file path and duration
+    if (activeRecordingId) {
+      recordings.update(activeRecordingId, {
+        audio_file_path: result.audioFilePath,
+        duration_seconds: Math.round(result.durationSeconds),
+        status: 'complete',
+      });
+    }
+
+    const recordingId = activeRecordingId;
+    activeRecordingId = null;
+
+    return { ...result, recordingId };
   });
 }

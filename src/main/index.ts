@@ -1,5 +1,6 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, protocol, net } from 'electron';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
 
 import { getDatabase, closeDatabase } from './db/connection';
@@ -140,6 +141,13 @@ const createWindow = (services: ServiceContainer) => {
 };
 
 app.on('ready', () => {
+  // Register custom protocol to serve local audio files
+  protocol.handle('audio-file', (request) => {
+    // URL format: audio-file:///C:/path/to/file.wav
+    const filePath = decodeURIComponent(request.url.replace('audio-file:///', '').replace('audio-file://', ''));
+    return net.fetch(pathToFileURL(filePath).href);
+  });
+
   const services = bootstrap();
   registerAllHandlers(services);
   createWindow(services);

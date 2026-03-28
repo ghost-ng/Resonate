@@ -83,8 +83,14 @@ export default function PostRecordingControls() {
 
   return (
     <div className="rounded-card border border-border bg-surface p-4">
-      {/* Audio element */}
-      {audioPath && <audio ref={audioRef} src={audioPath} preload="metadata" />}
+      {/* Audio element — use custom audio-file:// protocol for Electron */}
+      {audioPath && (
+        <audio
+          ref={audioRef}
+          src={`audio-file:///${audioPath.replace(/\\/g, '/')}`}
+          preload="metadata"
+        />
+      )}
 
       {/* Player controls */}
       <div className="mb-4">
