@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { useSessionStore } from '../../stores/session.store';
 import { formatDuration } from '../../lib/formatters';
 
@@ -7,27 +6,6 @@ export default function RecordButton() {
   const durationMs = useSessionStore((s) => s.durationMs);
   const startRecording = useSessionStore((s) => s.startRecording);
   const stopRecording = useSessionStore((s) => s.stopRecording);
-  const setDurationMs = useSessionStore((s) => s.setDurationMs);
-
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef = useRef<number>(0);
-
-  useEffect(() => {
-    if (isRecording) {
-      startTimeRef.current = Date.now();
-      timerRef.current = setInterval(() => {
-        setDurationMs(Date.now() - startTimeRef.current);
-      }, 100);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isRecording, setDurationMs]);
 
   const handleClick = () => {
     if (isRecording) {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useUiStore } from '../../stores/ui.store';
 import { useNotebookStore } from '../../stores/notebook.store';
 import { useRecordingStore } from '../../stores/recording.store';
@@ -15,12 +15,23 @@ import StatusBar from './StatusBar';
 
 export default function AppShell() {
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
+  const createNotebook = useNotebookStore((s) => s.createNotebook);
 
   // Global keyboard shortcuts
   useKeyboardShortcuts();
 
   // Recording timer
   useRecordingTimer();
+
+  // Listen for Ctrl+N new notebook event
+  useEffect(() => {
+    const handler = () => {
+      const name = prompt('Enter notebook name:');
+      if (name) createNotebook(name, '📁');
+    };
+    window.addEventListener('yourecord:new-notebook', handler);
+    return () => window.removeEventListener('yourecord:new-notebook', handler);
+  }, [createNotebook]);
 
   // Context menu
   const ctxMenu = useContextMenu();

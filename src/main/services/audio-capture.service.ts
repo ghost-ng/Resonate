@@ -22,16 +22,28 @@ type CaptureBackend = 'native-recorder' | 'stub';
 // Native recorder abstraction
 // ---------------------------------------------------------------------------
 
-interface NativeRecorderStream {
+interface CaptureStream {
   stop(): void;
   onData(cb: (data: Float32Array) => void): void;
 }
 
+// Real native-recorder-nodejs types
+interface NativeAudioRecorder {
+  start(config: { deviceType: 'input' | 'output'; deviceId: string }): Promise<void>;
+  stop(): Promise<void>;
+  on(event: 'data', cb: (data: Buffer) => void): void;
+  on(event: 'error', cb: (err: Error) => void): void;
+  removeAllListeners(): void;
+}
+
 interface NativeRecorderModule {
-  startLoopbackCapture(deviceId?: string): NativeRecorderStream;
-  startMicCapture(deviceId?: string): NativeRecorderStream;
-  getInputDevices(): Array<{ id: string; name: string; isDefault: boolean }>;
-  getOutputDevices(): Array<{ id: string; name: string; isDefault: boolean }>;
+  AudioRecorder: {
+    new (): NativeAudioRecorder;
+    getDevices(type?: 'input' | 'output'): Array<{ id: string; name: string; type: string; isDefault: boolean }>;
+    getDeviceFormat(deviceId: string): { sampleRate: number; channels: number; bitDepth: number };
+    checkPermission(): { mic: boolean; system: boolean };
+  };
+  SYSTEM_AUDIO_DEVICE_ID: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -41,14 +53,10 @@ interface NativeRecorderModule {
 function tryLoadNativeRecorder(): NativeRecorderModule | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('native-recorder-nodejs') as NativeRecorderModule;
-    // Quick sanity check
-    if (
-      typeof mod.startLoopbackCapture === 'function' &&
-      typeof mod.startMicCapture === 'function'
-    ) {
+    const mod = require('native-recorder-nodejs');
+    if (mod.AudioRecorder && typeof mod.AudioRecorder === 'function') {
       console.log('[AudioCapture] native-recorder-nodejs loaded successfully');
-      return mod;
+      return mod as NativeRecorderModule;
     }
   } catch {
     // expected on systems where the native addon cannot build
@@ -59,11 +67,55 @@ function tryLoadNativeRecorder(): NativeRecorderModule | null {
   return null;
 }
 
+/** Wraps a native AudioRecorder instance as a CaptureStream */
+class NativeStream implements CaptureStream {
+  private recorder: NativeAudioRecorder;
+  private dataCb: ((data: Float32Array) => void) | null = null;
+
+  constructor(
+    private nativeMod: NativeRecorderModule,
+    private deviceType: 'input' | 'output',
+    private deviceId: string,
+  ) {
+    this.recorder = new nativeMod.AudioRecorder();
+  }
+
+  async start(): Promise<void> {
+    this.recorder.on('data', (buffer: Buffer) => {
+      if (this.dataCb) {
+        // native-recorder-nodejs emits 16-bit PCM as Buffer
+        // Convert to Float32Array for our pipeline
+        const int16 = new Int16Array(buffer.buffer, buffer.byteOffset, buffer.byteLength / 2);
+        const float32 = new Float32Array(int16.length);
+        for (let i = 0; i < int16.length; i++) {
+          float32[i] = int16[i] / 32768;
+        }
+        this.dataCb(float32);
+      }
+    });
+    this.recorder.on('error', (err) => {
+      console.error(`[AudioCapture] Stream error (${this.deviceType}):`, err);
+    });
+    await this.recorder.start({ deviceType: this.deviceType, deviceId: this.deviceId });
+  }
+
+  stop(): void {
+    this.recorder.stop().catch((err) => {
+      console.error('[AudioCapture] Error stopping stream:', err);
+    });
+    this.recorder.removeAllListeners();
+  }
+
+  onData(cb: (data: Float32Array) => void): void {
+    this.dataCb = cb;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Stub backend — generates silence for dev / testing
 // ---------------------------------------------------------------------------
 
-class StubStream implements NativeRecorderStream {
+class StubStream implements CaptureStream {
   private timer: ReturnType<typeof setInterval> | null = null;
   private dataCb: ((data: Float32Array) => void) | null = null;
 
@@ -110,8 +162,8 @@ export class AudioCaptureService {
   private nativeRecorder: NativeRecorderModule | null;
 
   // Active streams (native or stub)
-  private micStream: NativeRecorderStream | null = null;
-  private systemStream: NativeRecorderStream | null = null;
+  private micStream: CaptureStream | null = null;
+  private systemStream: CaptureStream | null = null;
 
   // Buffers for aligning mic and system chunks before writing
   private micBuffer: Float32Array = new Float32Array(0);
@@ -155,7 +207,7 @@ export class AudioCaptureService {
     this.recording = true;
 
     if (this.backend === 'native-recorder' && this.nativeRecorder) {
-      this.startNativeCapture();
+      await this.startNativeCapture();
     } else {
       this.startStubCapture();
     }
@@ -200,12 +252,14 @@ export class AudioCaptureService {
   async getDevices(): Promise<{ inputs: AudioDeviceInfo[]; outputs: AudioDeviceInfo[] }> {
     if (this.nativeRecorder) {
       try {
-        const inputs = this.nativeRecorder.getInputDevices().map((d) => ({
+        const inputDevices = this.nativeRecorder.AudioRecorder.getDevices('input');
+        const outputDevices = this.nativeRecorder.AudioRecorder.getDevices('output');
+        const inputs = inputDevices.map((d) => ({
           id: d.id,
           name: d.name,
           isDefault: d.isDefault,
         }));
-        const outputs = this.nativeRecorder.getOutputDevices().map((d) => ({
+        const outputs = outputDevices.map((d) => ({
           id: d.id,
           name: d.name,
           isDefault: d.isDefault,
@@ -233,17 +287,48 @@ export class AudioCaptureService {
 
   // ---- private: native capture ---------------------------------------------
 
-  private startNativeCapture(): void {
+  private async startNativeCapture(): Promise<void> {
     if (!this.nativeRecorder) return;
 
-    // Native streams may provide 48 kHz; we downsample in the data handler.
-    this.sourceSampleRate = 48000;
+    // Get default devices
+    const inputDevices = this.nativeRecorder.AudioRecorder.getDevices('input');
+    const outputDevices = this.nativeRecorder.AudioRecorder.getDevices('output');
+    const defaultInput = inputDevices.find((d) => d.isDefault) ?? inputDevices[0];
+    const defaultOutput = outputDevices.find((d) => d.isDefault) ?? outputDevices[0];
 
-    this.systemStream = this.nativeRecorder.startLoopbackCapture();
-    this.micStream = this.nativeRecorder.startMicCapture();
+    if (!defaultInput || !defaultOutput) {
+      console.error('[AudioCapture] No audio devices found, falling back to stub');
+      this.startStubCapture();
+      return;
+    }
 
-    this.systemStream.onData((data) => this.handleSystemData(data));
-    this.micStream.onData((data) => this.handleMicData(data));
+    // Check device sample rate for downsampling
+    try {
+      const format = this.nativeRecorder.AudioRecorder.getDeviceFormat(defaultOutput.id);
+      this.sourceSampleRate = format.sampleRate || 48000;
+    } catch {
+      this.sourceSampleRate = 48000;
+    }
+
+    // Create streams
+    const micNative = new NativeStream(this.nativeRecorder, 'input', defaultInput.id);
+    const sysNative = new NativeStream(this.nativeRecorder, 'output', defaultOutput.id);
+
+    micNative.onData((data) => this.handleMicData(data));
+    sysNative.onData((data) => this.handleSystemData(data));
+
+    try {
+      await Promise.all([micNative.start(), sysNative.start()]);
+      this.micStream = micNative;
+      this.systemStream = sysNative;
+    } catch (err) {
+      console.error('[AudioCapture] Failed to start native streams:', err);
+      micNative.stop();
+      sysNative.stop();
+      console.log('[AudioCapture] Falling back to stub');
+      this.backend = 'stub';
+      this.startStubCapture();
+    }
   }
 
   // ---- private: stub capture -----------------------------------------------

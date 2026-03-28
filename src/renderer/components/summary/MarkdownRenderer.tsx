@@ -6,7 +6,7 @@ interface Props {
 
 export default function MarkdownRenderer({ content }: Props) {
   return (
-    <div className="prose-sm prose-invert max-w-none">
+    <div className="max-w-none">
       <ReactMarkdown
         components={{
           h2: ({ children }) => (

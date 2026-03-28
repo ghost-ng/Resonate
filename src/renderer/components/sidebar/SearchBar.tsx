@@ -16,7 +16,8 @@ export default function SearchBar() {
           placeholder="Search recordings..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full border-none bg-transparent text-sm text-text placeholder-text-muted outline-none"
+          className="w-full border-none bg-transparent text-sm text-text placeholder:text-text-muted outline-none"
+          data-search-input
         />
       </div>
     </div>
