@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>youRecord — UI Design Playground</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232735;
+    --surface3: #2c3041;
+    --border: #353a4a;
+    --text: #e4e6ef;
+    --text-muted: #8b90a5;
+    --accent: #6c5ce7;
+    --accent-hover: #7c6ef7;
+    --accent-glow: rgba(108, 92, 231, 0.15);
+    --success: #00c853;
+    --danger: #ff5252;
+    --recording: #ff3b3b;
+    --sidebar-w: 260px;
+    --radius: 10px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Controls Panel ── */
+  .controls {
+    width: 320px;
+    min-width: 320px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .controls h2 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .controls h2:first-child { border-top: none; padding-top: 0; }
+
+  .control-group { display: flex; flex-direction: column; gap: 6px; }
+  .control-group label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+
+  select, input[type="range"] {
+    width: 100%;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-family: var(--font);
+  }
+  select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    height: 6px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: var(--surface3);
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .range-row { display: flex; align-items: center; gap: 8px; }
+  .range-row span { font-size: 12px; color: var(--accent); min-width: 36px; text-align: right; font-family: var(--mono); }
+
+  .preset-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-btn {
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--surface2);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font);
+  }
+  .preset-btn:hover, .preset-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .color-row { display: flex; gap: 8px; align-items: center; }
+  .color-row input[type="color"] {
+    width: 32px; height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px;
+    cursor: pointer;
+    background: var(--surface2);
+  }
+  .color-row span { font-size: 12px; font-family: var(--mono); color: var(--text-muted); }
+
+  /* ── Preview Area ── */
+  .preview-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .preview-header {
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .preview-header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .preview-header .logo {
+    width: 24px;
+    height: 24px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  .preview-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+  }
+
+  /* ── App Preview ── */
+  .app-preview {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  /* Sidebar */
+  .app-sidebar {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.2s;
+  }
+
+  .sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .sidebar-header .app-title {
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sidebar-title-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+  }
+
+  .sidebar-search {
+    margin: 12px 16px;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sidebar-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    padding: 12px 16px 6px;
+  }
+
+  .notebook-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 8px;
+  }
+
+  .notebook-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    transition: background 0.1s;
+    margin-bottom: 2px;
+  }
+  .notebook-item:hover { background: var(--surface2); }
+  .notebook-item.active { background: var(--accent-glow); color: var(--accent-hover); }
+  .notebook-item .nb-icon { font-size: 16px; }
+  .notebook-item .nb-count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--surface2);
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+  .sidebar-footer button {
+    flex: 1;
+    padding: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: all 0.1s;
+  }
+  .sidebar-footer button:hover { background: var(--surface3); color: var(--text); }
+
+  /* Main Content */
+  .app-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Tabs */
+  .tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 16px 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    transition: all 0.1s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+  }
+  .tab:hover { color: var(--text); background: var(--surface2); }
+  .tab.active {
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-bottom-color: var(--bg);
+  }
+  .tab .close-tab {
+    font-size: 10px;
+    opacity: 0.4;
+    cursor: pointer;
+    padding: 2px;
+  }
+  .tab .close-tab:hover { opacity: 1; }
+  .tab-add {
+    padding: 6px 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .tab-add:hover { background: var(--surface2); color: var(--text); }
+
+  /* Content area */
+  .content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 32px;
+  }
+
+  .recording-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .recording-title {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .recording-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .record-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 24px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font);
+  }
+  .record-btn.idle {
+    background: var(--recording);
+    color: white;
+    box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.3);
+  }
+  .record-btn.idle:hover { box-shadow: 0 0 20px 4px rgba(255, 59, 59, 0.3); }
+  .record-btn.recording {
+    background: var(--surface2);
+    color: var(--recording);
+    border: 2px solid var(--recording);
+    animation: pulse-border 1.5s infinite;
+  }
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.3); }
+    50% { box-shadow: 0 0 12px 4px rgba(255, 59, 59, 0.2); }
+  }
+
+  .rec-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .recording .rec-dot { animation: blink 1s infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* Section cards */
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .section-card-header {
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .section-card-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-card-body { padding: 18px; }
+
+  /* Transcript lines */
+  .transcript-line {
+    display: flex;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .transcript-line + .transcript-line { border-top: 1px solid rgba(255,255,255,0.04); }
+  .speaker {
+    font-weight: 600;
+    min-width: 80px;
+    color: var(--accent-hover);
+    font-size: 12px;
+  }
+  .timestamp-badge {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    min-width: 48px;
+  }
+
+  /* Summary */
+  .summary-content {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .summary-content ul { padding-left: 20px; margin: 8px 0; }
+  .summary-content li { margin-bottom: 6px; }
+  .summary-content h4 { margin: 12px 0 6px; color: var(--accent-hover); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Action items */
+  .action-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .action-checkbox {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .action-assignee {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 3px 8px;
+    background: var(--accent-glow);
+    color: var(--accent-hover);
+    border-radius: 10px;
+  }
+
+  /* Status bar */
+  .status-bar {
+    padding: 6px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+  }
+  .status-item { display: flex; align-items: center; gap: 4px; }
+
+  /* Auto-detect banner */
+  .detect-banner {
+    margin: 0 32px 16px;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, rgba(108, 92, 231, 0.12), rgba(108, 92, 231, 0.05));
+    border: 1px solid rgba(108, 92, 231, 0.3);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+  }
+  .detect-banner .detect-icon { font-size: 20px; }
+  .detect-banner .detect-actions { margin-left: auto; display: flex; gap: 8px; }
+  .detect-banner button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: none;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-weight: 500;
+  }
+  .detect-banner .btn-primary { background: var(--accent); color: white; }
+  .detect-banner .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+
+  /* Prompt output */
+  .prompt-output {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 16px 20px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .prompt-output-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .prompt-output-header h3 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+  }
+  .copy-btn {
+    padding: 4px 12px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { background: var(--accent-hover); }
+  .prompt-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+    font-family: var(--mono);
+    white-space: pre-wrap;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border); }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ── Controls Panel ── -->
+<div class="controls">
+  <div>
+    <div style="font-size: 18px; font-weight: 700; margin-bottom: 2px;">youRecord</div>
+    <div style="font-size: 12px; color: var(--text-muted);">UI Design Playground</div>
+  </div>
+
+  <h2>Presets</h2>
+  <div class="preset-row">
+    <button class="preset-btn active" onclick="applyPreset('default')">Default</button>
+    <button class="preset-btn" onclick="applyPreset('compact')">Compact</button>
+    <button class="preset-btn" onclick="applyPreset('cozy')">Cozy</button>
+    <button class="preset-btn" onclick="applyPreset('minimal')">Minimal</button>
+  </div>
+
+  <h2>Layout</h2>
+  <div class="control-group">
+    <label>Sidebar Position</label>
+    <select id="sidebarPos" onchange="updateAll()">
+      <option value="left">Left</option>
+      <option value="right">Right</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Sidebar Width</label>
+    <div class="range-row">
+      <input type="range" id="sidebarWidth" min="200" max="360" value="260" oninput="updateAll()">
+      <span id="sidebarWidthVal">260</span>
+    </div>
+  </div>
+
+  <h2>Colors</h2>
+  <div class="control-group">
+    <label>Accent Color</label>
+    <div class="color-row">
+      <input type="color" id="accentColor" value="#6c5ce7" oninput="updateAll()">
+      <span id="accentVal">#6c5ce7</span>
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Background Darkness</label>
+    <div class="range-row">
+      <input type="range" id="bgDarkness" min="0" max="20" value="7" oninput="updateAll()">
+      <span id="bgDarknessVal">7</span>
+    </div>
+  </div>
+
+  <h2>Typography</h2>
+  <div class="control-group">
+    <label>Font Size Base</label>
+    <div class="range-row">
+      <input type="range" id="fontSize" min="11" max="16" value="13" oninput="updateAll()">
+      <span id="fontSizeVal">13px</span>
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Content Line Height</label>
+    <div class="range-row">
+      <input type="range" id="lineHeight" min="14" max="22" value="17" step="1" oninput="updateAll()">
+      <span id="lineHeightVal">1.7</span>
+    </div>
+  </div>
+
+  <h2>Card Style</h2>
+  <div class="control-group">
+    <label>Border Radius</label>
+    <div class="range-row">
+      <input type="range" id="cardRadius" min="0" max="20" value="10" oninput="updateAll()">
+      <span id="cardRadiusVal">10px</span>
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Card Spacing</label>
+    <div class="range-row">
+      <input type="range" id="cardSpacing" min="8" max="28" value="16" oninput="updateAll()">
+      <span id="cardSpacingVal">16px</span>
+    </div>
+  </div>
+
+  <h2>Features</h2>
+  <div class="control-group">
+    <label>Show Auto-Detect Banner</label>
+    <select id="showBanner" onchange="updateAll()">
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Recording State</label>
+    <select id="recState" onchange="updateAll()">
+      <option value="idle">Idle</option>
+      <option value="recording">Recording</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Tab Style</label>
+    <select id="tabStyle" onchange="updateAll()">
+      <option value="browser">Browser-style</option>
+      <option value="pill">Pill/Rounded</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Content View</label>
+    <select id="contentView" onchange="updateAll()">
+      <option value="full">Full (Transcript + Summary)</option>
+      <option value="transcript">Transcript Only</option>
+      <option value="summary">Summary Only</option>
+    </select>
+  </div>
+</div>
+
+<!-- ── Preview ── -->
+<div class="preview-container">
+  <div class="preview-header">
+    <h1><div class="logo">🎙</div> youRecord — Live Preview</h1>
+    <span style="font-size: 12px; color: var(--text-muted);">Adjust controls to explore</span>
+  </div>
+
+  <div class="preview-body">
+    <div class="app-preview" id="appPreview">
+
+      <!-- Sidebar -->
+      <div class="app-sidebar" id="appSidebar">
+        <div class="sidebar-header">
+          <div class="app-title">
+            <div class="sidebar-title-icon" id="sidebarIcon">🎙</div>
+            youRecord
+          </div>
+        </div>
+        <div class="sidebar-search">🔍 Search recordings...</div>
+        <div class="sidebar-section-label">Notebooks</div>
+        <div class="notebook-list">
+          <div class="notebook-item active">
+            <span class="nb-icon">📓</span> All Recordings <span class="nb-count">12</span>
+          </div>
+          <div class="notebook-item">
+            <span class="nb-icon">💼</span> Work Meetings <span class="nb-count">7</span>
+          </div>
+          <div class="notebook-item">
+            <span class="nb-icon">🚀</span> Sprint Planning <span class="nb-count">3</span>
+          </div>
+          <div class="notebook-item">
+            <span class="nb-icon">👥</span> 1:1s <span class="nb-count">2</span>
+          </div>
+        </div>
+        <div class="sidebar-section-label">Recent</div>
+        <div class="notebook-list">
+          <div class="notebook-item">
+            <span class="nb-icon">📝</span> Design Review 3/27
+          </div>
+          <div class="notebook-item">
+            <span class="nb-icon">📝</span> Standup 3/26
+          </div>
+        </div>
+        <div class="sidebar-footer">
+          <button>+ Notebook</button>
+          <button>⚙ Settings</button>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="app-main">
+        <!-- Tab Bar -->
+        <div class="tab-bar" id="tabBar">
+          <div class="tab active">📝 Design Review 3/27 <span class="close-tab">✕</span></div>
+          <div class="tab">📝 Standup 3/26 <span class="close-tab">✕</span></div>
+          <div class="tab">📝 Sprint Retro <span class="close-tab">✕</span></div>
+          <div class="tab-add">+</div>
+        </div>
+
+        <div class="content-area" id="contentArea">
+          <!-- Auto-detect banner -->
+          <div class="detect-banner" id="detectBanner">
+            <span class="detect-icon">📡</span>
+            <div>
+              <strong>Microsoft Teams</strong> call detected
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Audio activity from Teams.exe</div>
+            </div>
+            <div class="detect-actions">
+              <button class="btn-ghost">Dismiss</button>
+              <button class="btn-primary">Start Recording</button>
+            </div>
+          </div>
+
+          <!-- Recording header -->
+          <div class="recording-header">
+            <div>
+              <div class="recording-title">Design Review — Q1 Dashboard</div>
+              <div class="recording-meta">March 27, 2026 • 45 min • Microsoft Teams • 3 participants</div>
+            </div>
+            <button class="record-btn" id="recordBtn">
+              <span class="rec-dot"></span>
+              <span id="recLabel">Record</span>
+            </button>
+          </div>
+
+          <!-- Transcript Card -->
+          <div class="section-card" id="transcriptCard">
+            <div class="section-card-header">
+              <h3>🎤 Transcript</h3>
+              <span style="font-size: 12px; color: var(--text-muted);">Auto-generated</span>
+            </div>
+            <div class="section-card-body">
+              <div class="transcript-line">
+                <span class="timestamp-badge">00:12</span>
+                <span class="speaker">Sarah</span>
+                <span>Alright everyone, let's go through the Q1 dashboard designs. I've shared my screen with the latest Figma file.</span>
+              </div>
+              <div class="transcript-line">
+                <span class="timestamp-badge">00:28</span>
+                <span class="speaker">Miguel</span>
+                <span>Looks good. I think the chart layout on the main overview page is much cleaner than last iteration.</span>
+              </div>
+              <div class="transcript-line">
+                <span class="timestamp-badge">00:45</span>
+                <span class="speaker">Alex</span>
+                <span>Agreed. One question — are we sticking with the tabbed navigation or switching to the sidebar approach we discussed?</span>
+              </div>
+              <div class="transcript-line">
+                <span class="timestamp-badge">01:02</span>
+                <span class="speaker">Sarah</span>
+                <span>Let's go with sidebar. The user testing showed people missed tabs on mobile viewports. I'll update the prototype after this call.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Summary Card -->
+          <div class="section-card" id="summaryCard">
+            <div class="section-card-header">
+              <h3>📋 AI Summary</h3>
+              <span style="font-size: 12px; color: var(--text-muted);">Generated via GPT-4</span>
+            </div>
+            <div class="section-card-body">
+              <div class="summary-content">
+                <h4>Key Decisions</h4>
+                <ul>
+                  <li>Dashboard will use <strong>sidebar navigation</strong> instead of tabs (user testing showed tabs were missed on mobile)</li>
+                  <li>Chart layout on overview page approved as-is</li>
+                  <li>Sarah will update Figma prototype post-call</li>
+                </ul>
+                <h4>Action Items</h4>
+              </div>
+              <div class="action-item">
+                <div class="action-checkbox"></div>
+                Update Figma prototype with sidebar navigation
+                <span class="action-assignee">Sarah</span>
+              </div>
+              <div class="action-item">
+                <div class="action-checkbox"></div>
+                Review mobile responsive breakpoints
+                <span class="action-assignee">Alex</span>
+              </div>
+              <div class="action-item">
+                <div class="action-checkbox"></div>
+                Schedule follow-up for final sign-off
+                <span class="action-assignee">Miguel</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar" id="statusBar">
+          <div class="status-item"><span class="status-dot"></span> Ready</div>
+          <div class="status-item">STT: Whisper API</div>
+          <div class="status-item">AI: GPT-4</div>
+          <div class="status-item" style="margin-left: auto;">SQLite • 12 recordings • 2.3 GB</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prompt Output -->
+  <div class="prompt-output">
+    <div class="prompt-output-header">
+      <h3>Design Prompt</h3>
+      <button class="copy-btn" onclick="copyPrompt()">Copy</button>
+    </div>
+    <div class="prompt-text" id="promptText"></div>
+  </div>
+</div>
+
+<script>
+const DEFAULTS = {
+  sidebarPos: 'left',
+  sidebarWidth: 260,
+  accentColor: '#6c5ce7',
+  bgDarkness: 7,
+  fontSize: 13,
+  lineHeight: 17,
+  cardRadius: 10,
+  cardSpacing: 16,
+  showBanner: 'yes',
+  recState: 'idle',
+  tabStyle: 'browser',
+  contentView: 'full'
+};
+
+const PRESETS = {
+  default: { ...DEFAULTS },
+  compact: {
+    sidebarWidth: 220, fontSize: 12, lineHeight: 15, cardRadius: 6, cardSpacing: 10,
+    bgDarkness: 9, accentColor: '#5b8def', sidebarPos: 'left', showBanner: 'yes',
+    recState: 'idle', tabStyle: 'browser', contentView: 'full'
+  },
+  cozy: {
+    sidebarWidth: 300, fontSize: 14, lineHeight: 20, cardRadius: 14, cardSpacing: 22,
+    bgDarkness: 5, accentColor: '#a78bfa', sidebarPos: 'left', showBanner: 'yes',
+    recState: 'idle', tabStyle: 'pill', contentView: 'full'
+  },
+  minimal: {
+    sidebarWidth: 220, fontSize: 13, lineHeight: 17, cardRadius: 8, cardSpacing: 14,
+    bgDarkness: 10, accentColor: '#4fd1c5', sidebarPos: 'left', showBanner: 'no',
+    recState: 'idle', tabStyle: 'pill', contentView: 'summary'
+  }
+};
+
+const state = { ...DEFAULTS };
+
+function readControls() {
+  state.sidebarPos = document.getElementById('sidebarPos').value;
+  state.sidebarWidth = +document.getElementById('sidebarWidth').value;
+  state.accentColor = document.getElementById('accentColor').value;
+  state.bgDarkness = +document.getElementById('bgDarkness').value;
+  state.fontSize = +document.getElementById('fontSize').value;
+  state.lineHeight = +document.getElementById('lineHeight').value;
+  state.cardRadius = +document.getElementById('cardRadius').value;
+  state.cardSpacing = +document.getElementById('cardSpacing').value;
+  state.showBanner = document.getElementById('showBanner').value;
+  state.recState = document.getElementById('recState').value;
+  state.tabStyle = document.getElementById('tabStyle').value;
+  state.contentView = document.getElementById('contentView').value;
+}
+
+function setControls(s) {
+  document.getElementById('sidebarPos').value = s.sidebarPos;
+  document.getElementById('sidebarWidth').value = s.sidebarWidth;
+  document.getElementById('accentColor').value = s.accentColor;
+  document.getElementById('bgDarkness').value = s.bgDarkness;
+  document.getElementById('fontSize').value = s.fontSize;
+  document.getElementById('lineHeight').value = s.lineHeight;
+  document.getElementById('cardRadius').value = s.cardRadius;
+  document.getElementById('cardSpacing').value = s.cardSpacing;
+  document.getElementById('showBanner').value = s.showBanner;
+  document.getElementById('recState').value = s.recState;
+  document.getElementById('tabStyle').value = s.tabStyle;
+  document.getElementById('contentView').value = s.contentView;
+}
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  Object.assign(state, p);
+  setControls(state);
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase() === name));
+  updateAll();
+}
+
+function hexToHSL(hex) {
+  let r = parseInt(hex.slice(1,3),16)/255;
+  let g = parseInt(hex.slice(3,5),16)/255;
+  let b = parseInt(hex.slice(5,7),16)/255;
+  let max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h, s, l = (max+min)/2;
+  if (max===min) { h=s=0; } else {
+    let d = max-min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max) {
+      case r: h = ((g-b)/d + (g<b?6:0))/6; break;
+      case g: h = ((b-r)/d + 2)/6; break;
+      case b: h = ((r-g)/d + 4)/6; break;
+    }
+  }
+  return {h: Math.round(h*360), s: Math.round(s*100), l: Math.round(l*100)};
+}
+
+function renderPreview() {
+  const sidebar = document.getElementById('appSidebar');
+  const preview = document.getElementById('appPreview');
+  const sidebarIcon = document.getElementById('sidebarIcon');
+
+  // Sidebar position
+  if (state.sidebarPos === 'right') {
+    preview.style.flexDirection = 'row-reverse';
+  } else {
+    preview.style.flexDirection = 'row';
+  }
+
+  // Sidebar width
+  sidebar.style.width = state.sidebarWidth + 'px';
+
+  // Colors
+  const hsl = hexToHSL(state.accentColor);
+  document.documentElement.style.setProperty('--accent', state.accentColor);
+  document.documentElement.style.setProperty('--accent-hover', `hsl(${hsl.h}, ${Math.min(hsl.s+10,100)}%, ${Math.min(hsl.l+8,90)}%)`);
+  document.documentElement.style.setProperty('--accent-glow', `hsla(${hsl.h}, ${hsl.s}%, ${hsl.l}%, 0.15)`);
+  sidebarIcon.style.background = state.accentColor;
+
+  // Background darkness
+  const bgL = state.bgDarkness;
+  document.documentElement.style.setProperty('--bg', `hsl(228, 20%, ${bgL}%)`);
+  document.documentElement.style.setProperty('--surface', `hsl(228, 18%, ${bgL+5}%)`);
+  document.documentElement.style.setProperty('--surface2', `hsl(228, 16%, ${bgL+9}%)`);
+  document.documentElement.style.setProperty('--surface3', `hsl(228, 14%, ${bgL+13}%)`);
+  document.documentElement.style.setProperty('--border', `hsl(228, 12%, ${bgL+17}%)`);
+
+  // Typography
+  document.getElementById('contentArea').style.fontSize = state.fontSize + 'px';
+  document.querySelectorAll('.summary-content, .transcript-line span:last-child').forEach(el => {
+    el.style.lineHeight = (state.lineHeight / 10).toFixed(1);
+  });
+
+  // Card styling
+  document.documentElement.style.setProperty('--radius', state.cardRadius + 'px');
+  document.querySelectorAll('.section-card').forEach(card => {
+    card.style.borderRadius = state.cardRadius + 'px';
+    card.style.marginBottom = state.cardSpacing + 'px';
+  });
+
+  // Banner
+  document.getElementById('detectBanner').classList.toggle('hidden', state.showBanner === 'no');
+
+  // Record state
+  const btn = document.getElementById('recordBtn');
+  const label = document.getElementById('recLabel');
+  if (state.recState === 'recording') {
+    btn.className = 'record-btn recording';
+    label.textContent = 'Stop Recording';
+  } else {
+    btn.className = 'record-btn idle';
+    label.textContent = 'Record';
+  }
+
+  // Tab style
+  const tabs = document.querySelectorAll('#tabBar .tab');
+  tabs.forEach(tab => {
+    if (state.tabStyle === 'pill') {
+      tab.style.borderRadius = '20px';
+      tab.style.margin = '4px 0';
+    } else {
+      tab.style.borderRadius = '8px 8px 0 0';
+      tab.style.margin = '0';
+    }
+  });
+
+  // Content view
+  document.getElementById('transcriptCard').classList.toggle('hidden', state.contentView === 'summary');
+  document.getElementById('summaryCard').classList.toggle('hidden', state.contentView === 'transcript');
+
+  // Update value displays
+  document.getElementById('sidebarWidthVal').textContent = state.sidebarWidth;
+  document.getElementById('accentVal').textContent = state.accentColor;
+  document.getElementById('bgDarknessVal').textContent = state.bgDarkness;
+  document.getElementById('fontSizeVal').textContent = state.fontSize + 'px';
+  document.getElementById('lineHeightVal').textContent = (state.lineHeight / 10).toFixed(1);
+  document.getElementById('cardRadiusVal').textContent = state.cardRadius + 'px';
+  document.getElementById('cardSpacingVal').textContent = state.cardSpacing + 'px';
+}
+
+function updatePrompt() {
+  const parts = [];
+
+  if (state.sidebarPos !== DEFAULTS.sidebarPos) parts.push(`sidebar on the ${state.sidebarPos}`);
+  if (state.sidebarWidth !== DEFAULTS.sidebarWidth) {
+    const desc = state.sidebarWidth < 240 ? 'narrow' : state.sidebarWidth > 300 ? 'wide' : 'medium-width';
+    parts.push(`a ${desc} sidebar (${state.sidebarWidth}px)`);
+  }
+  if (state.accentColor !== DEFAULTS.accentColor) parts.push(`accent color ${state.accentColor}`);
+  if (state.bgDarkness !== DEFAULTS.bgDarkness) {
+    const desc = state.bgDarkness < 5 ? 'lighter' : state.bgDarkness > 12 ? 'very dark' : 'dark';
+    parts.push(`${desc} background (lightness ${state.bgDarkness}%)`);
+  }
+  if (state.fontSize !== DEFAULTS.fontSize) parts.push(`${state.fontSize}px base font size`);
+  if (state.lineHeight !== DEFAULTS.lineHeight) parts.push(`${(state.lineHeight/10).toFixed(1)} line height for content`);
+  if (state.cardRadius !== DEFAULTS.cardRadius) {
+    const desc = state.cardRadius < 4 ? 'sharp' : state.cardRadius > 14 ? 'very rounded' : 'rounded';
+    parts.push(`${desc} card corners (${state.cardRadius}px radius)`);
+  }
+  if (state.cardSpacing !== DEFAULTS.cardSpacing) {
+    const desc = state.cardSpacing < 12 ? 'tight' : state.cardSpacing > 20 ? 'spacious' : 'moderate';
+    parts.push(`${desc} card spacing (${state.cardSpacing}px)`);
+  }
+  if (state.tabStyle !== DEFAULTS.tabStyle) parts.push(`${state.tabStyle}-style tabs`);
+
+  const el = document.getElementById('promptText');
+  if (parts.length === 0) {
+    el.textContent = 'Using default design settings. Adjust controls to generate a custom design prompt.';
+  } else {
+    el.textContent = `Build the youRecord Electron app UI with: ${parts.join(', ')}. The app should have a dark theme with a notebook-style sidebar listing recordings organized into notebooks, a tabbed content area showing transcripts and AI-generated summaries with action items, a prominent record button, and a status bar. Include auto-detection banners for call apps.`;
+  }
+}
+
+function updateAll() {
+  readControls();
+  renderPreview();
+  updatePrompt();
+}
+
+function copyPrompt() {
+  const text = document.getElementById('promptText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+
+// Init
+updateAll();
+</script>
+</body>
+</html>
