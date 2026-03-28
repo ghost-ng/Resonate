@@ -9,9 +9,9 @@ import { registerSettingsHandlers } from './settings.ipc';
 
 export function registerAllHandlers(services: ServiceContainer): void {
   registerNotebookHandlers(services.notebooks);
-  registerRecordingHandlers(services.recordings);
-  registerTranscriptHandlers(services.transcripts);
-  registerSummaryHandlers(services.summaries, services.actionItems);
+  registerRecordingHandlers(services);
+  registerTranscriptHandlers(services);
+  registerSummaryHandlers(services);
   registerPromptProfileHandlers(services.promptProfiles);
-  registerSettingsHandlers(services.settings);
+  registerSettingsHandlers(services);
 }

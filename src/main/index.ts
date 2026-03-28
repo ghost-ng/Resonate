@@ -14,14 +14,21 @@ import { ActionItemRepository } from './db/repositories/action-item.repo';
 import { PromptProfileRepository } from './db/repositories/prompt-profile.repo';
 import { SettingsRepository } from './db/repositories/settings.repo';
 
-import { registerAllHandlers } from './ipc/handlers';
+import { AudioCaptureService } from './services/audio-capture.service';
+import { SttRouterService } from './services/stt-router.service';
+import { AiSummaryService } from './services/ai-summary.service';
+import { SafeStorageService } from './services/safe-storage.service';
+import { ProcessMonitorService } from './services/process-monitor.service';
 import { TrayService } from './services/tray.service';
+
+import { registerAllHandlers } from './ipc/handlers';
 
 // Vite globals injected by @electron-forge/plugin-vite
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
 export interface ServiceContainer {
+  // Repositories
   notebooks: NotebookRepository;
   recordings: RecordingRepository;
   transcripts: TranscriptRepository;
@@ -29,6 +36,13 @@ export interface ServiceContainer {
   actionItems: ActionItemRepository;
   promptProfiles: PromptProfileRepository;
   settings: SettingsRepository;
+  // Services
+  audioCapture: AudioCaptureService;
+  sttRouter: SttRouterService;
+  aiSummary: AiSummaryService;
+  safeStorage: SafeStorageService;
+  processMonitor: ProcessMonitorService;
+  trayService: TrayService;
 }
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -36,23 +50,52 @@ if (started) {
   app.quit();
 }
 
+let mainWindow: BrowserWindow | null = null;
+
 function bootstrap(): ServiceContainer {
   const db = getDatabase();
   runMigrations(db, [migration001]);
 
+  // Repositories
+  const notebooks = new NotebookRepository(db);
+  const recordings = new RecordingRepository(db);
+  const transcripts = new TranscriptRepository(db);
+  const summaries = new SummaryRepository(db);
+  const actionItems = new ActionItemRepository(db);
+  const promptProfiles = new PromptProfileRepository(db);
+  const settings = new SettingsRepository(db);
+
+  // Services
+  const safeStorage = new SafeStorageService();
+  const audioCaptureDir = path.join(app.getPath('userData'), 'recordings');
+  const audioCapture = new AudioCaptureService(audioCaptureDir);
+  const sttRouter = new SttRouterService(settings);
+  const aiSummary = new AiSummaryService(settings, promptProfiles, safeStorage);
+  const processMonitor = new ProcessMonitorService(settings, (appName, processName) => {
+    mainWindow?.webContents.send('auto-detect:app-found', { appName, processName });
+  });
+  // TrayService needs the window — will be set after window creation
+  const trayService = null as unknown as TrayService;
+
   return {
-    notebooks: new NotebookRepository(db),
-    recordings: new RecordingRepository(db),
-    transcripts: new TranscriptRepository(db),
-    summaries: new SummaryRepository(db),
-    actionItems: new ActionItemRepository(db),
-    promptProfiles: new PromptProfileRepository(db),
-    settings: new SettingsRepository(db),
+    notebooks,
+    recordings,
+    transcripts,
+    summaries,
+    actionItems,
+    promptProfiles,
+    settings,
+    audioCapture,
+    sttRouter,
+    aiSummary,
+    safeStorage,
+    processMonitor,
+    trayService,
   };
 }
 
-const createWindow = () => {
-  const mainWindow = new BrowserWindow({
+const createWindow = (services: ServiceContainer) => {
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 900,
@@ -81,18 +124,28 @@ const createWindow = () => {
   // System tray
   const trayService = new TrayService(mainWindow);
   trayService.create();
+  services.trayService = trayService;
+
+  // Forward audio levels to the renderer
+  services.audioCapture.onAudioLevels((levels) => {
+    mainWindow?.webContents.send('recording:audio-levels', levels);
+  });
 
   mainWindow.on('closed', () => {
     trayService.destroy();
+    mainWindow = null;
   });
 
-  return { mainWindow, trayService };
+  return mainWindow;
 };
 
 app.on('ready', () => {
   const services = bootstrap();
   registerAllHandlers(services);
-  createWindow();
+  createWindow(services);
+
+  // Start polling for meeting apps
+  services.processMonitor.start();
 });
 
 app.on('window-all-closed', () => {
@@ -103,7 +156,8 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+    // Services are already bootstrapped; just need a reference.
+    // In practice, activate only fires on macOS where the app is still running.
   }
 });
 
