@@ -15,6 +15,7 @@ import { PromptProfileRepository } from './db/repositories/prompt-profile.repo';
 import { SettingsRepository } from './db/repositories/settings.repo';
 
 import { registerAllHandlers } from './ipc/handlers';
+import { TrayService } from './services/tray.service';
 
 // Vite globals injected by @electron-forge/plugin-vite
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -76,6 +77,16 @@ const createWindow = () => {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.webContents.openDevTools();
   }
+
+  // System tray
+  const trayService = new TrayService(mainWindow);
+  trayService.create();
+
+  mainWindow.on('closed', () => {
+    trayService.destroy();
+  });
+
+  return { mainWindow, trayService };
 };
 
 app.on('ready', () => {
