@@ -40,7 +40,7 @@ export class SttRouterService {
     const engineName =
       engineOverride ??
       ((this.settingsRepo.get(SETTINGS_KEYS.STT_ENGINE) as SttEngineName) ??
-        'cloud');
+        'whisper');
 
     const engine = this.engines.get(engineName);
     if (!engine) {
