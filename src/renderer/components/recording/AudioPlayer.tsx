@@ -4,9 +4,10 @@ import { formatTimestamp } from '../../lib/formatters';
 interface Props {
   audioPath: string;
   recordingId: number;
+  onStatusChange?: (message: string) => void;
 }
 
-export default function AudioPlayer({ audioPath, recordingId }: Props) {
+export default function AudioPlayer({ audioPath, recordingId, onStatusChange }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -68,18 +69,30 @@ export default function AudioPlayer({ audioPath, recordingId }: Props) {
     audio.currentTime = (fraction * duration) / 1000;
   };
 
+  const [status, setStatus] = useState('');
+
   const handleTranscribe = async () => {
+    setStatus('Transcribing...');
     try {
       await window.electronAPI.invoke('transcript:start', { recordingId });
-    } catch (err) {
+      setStatus('Transcription complete');
+      onStatusChange?.('transcribed');
+    } catch (err: any) {
+      const msg = err?.message || 'Transcription failed';
+      setStatus(`Error: ${msg}`);
       console.error('Transcribe failed:', err);
     }
   };
 
   const handleSendToAi = async () => {
+    setStatus('Generating summary...');
     try {
       await window.electronAPI.invoke('summary:generate', { recordingId });
-    } catch (err) {
+      setStatus('Summary complete');
+      onStatusChange?.('summarized');
+    } catch (err: any) {
+      const msg = err?.message || 'Summary failed';
+      setStatus(`Error: ${msg}`);
       console.error('Send to AI failed:', err);
     }
   };
@@ -135,6 +148,13 @@ export default function AudioPlayer({ audioPath, recordingId }: Props) {
           />
         </div>
       </div>
+
+      {/* Status message */}
+      {status && (
+        <p className={`mt-2 text-xs ${status.startsWith('Error') ? 'text-danger' : 'text-text-muted'}`}>
+          {status}
+        </p>
+      )}
     </div>
   );
 }

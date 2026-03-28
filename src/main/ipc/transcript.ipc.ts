@@ -1,4 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron';
+import * as fs from 'fs';
 import type { ServiceContainer } from '../index';
 import type { SttEngineName } from '../../shared/types/stt.types';
 
@@ -12,11 +13,17 @@ export function registerTranscriptHandlers(services: ServiceContainer): void {
   ipcMain.handle('transcript:start', async (_, args: { recordingId: number; engine?: string }) => {
     const recording = recordings.findById(args.recordingId);
     if (!recording) {
-      throw new Error(`Recording ${args.recordingId} not found`);
+      throw new Error(`Recording not found`);
     }
     if (!recording.audio_file_path) {
-      throw new Error(`Recording ${args.recordingId} has no audio file`);
+      throw new Error(`No audio file for this recording. Try recording again.`);
     }
+    if (!fs.existsSync(recording.audio_file_path)) {
+      throw new Error(`Audio file not found on disk: ${recording.audio_file_path}`);
+    }
+
+    console.log(`[Transcript] Starting transcription for recording ${args.recordingId}`);
+    console.log(`[Transcript] Audio: ${recording.audio_file_path} (${fs.statSync(recording.audio_file_path).size} bytes)`);
 
     // Update status to transcribing
     recordings.update(args.recordingId, { status: 'transcribing' });
