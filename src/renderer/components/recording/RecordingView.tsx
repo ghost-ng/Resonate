@@ -1,8 +1,12 @@
 import { useRecordingStore } from '../../stores/recording.store';
+import { useSessionStore } from '../../stores/session.store';
 import RecordingHeader from './RecordingHeader';
 import RecordButton from './RecordButton';
 import RecordingMetadata from './RecordingMetadata';
 import AutoDetectBanner from './AutoDetectBanner';
+import RecordingStartDialog from './RecordingStartDialog';
+import WaveformVisualizer from './WaveformVisualizer';
+import PostRecordingControls from './PostRecordingControls';
 import TranscriptCard from '../transcript/TranscriptCard';
 import SummaryCard from '../summary/SummaryCard';
 
@@ -11,6 +15,7 @@ export default function RecordingView() {
   const recordings = useRecordingStore((s) => s.recordings);
   const transcripts = useRecordingStore((s) => s.transcripts);
   const summaries = useRecordingStore((s) => s.summaries);
+  const recordingPhase = useSessionStore((s) => s.recordingPhase);
 
   if (!activeTabId) {
     return (
@@ -19,6 +24,8 @@ export default function RecordingView() {
           <div className="text-2xl text-text-muted/40 mb-2">📝</div>
           <p className="text-sm text-text-muted">Select or start a recording</p>
         </div>
+
+        {recordingPhase === 'device-select' && <RecordingStartDialog />}
       </div>
     );
   }
@@ -42,9 +49,14 @@ export default function RecordingView() {
           <RecordingMetadata recording={recording} />
         </div>
 
+        {recordingPhase === 'recording' && <WaveformVisualizer />}
+        {recordingPhase === 'post-recording' && <PostRecordingControls />}
+
         {transcript && <TranscriptCard transcript={transcript} />}
         {summary && <SummaryCard summary={summary} />}
       </div>
+
+      {recordingPhase === 'device-select' && <RecordingStartDialog />}
     </div>
   );
 }
