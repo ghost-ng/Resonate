@@ -38,12 +38,14 @@ log(`Output device: ${outputDev ? outputDev.name : 'none'} (${outputDev?.id})`);
 
 // Get format info
 let sampleRate = 48000;
+let inputChannels = 2;
 try {
   const fmt = AudioRecorder.getDeviceFormat(inputDev.id);
   sampleRate = fmt.sampleRate || 48000;
+  inputChannels = fmt.channels || 2;
   log(`Input format: ${fmt.sampleRate}Hz, ${fmt.channels}ch, ${fmt.bitDepth}bit`);
 } catch (e) {
-  log(`getDeviceFormat failed: ${e.message}, defaulting to 48000Hz`);
+  log(`getDeviceFormat failed: ${e.message}, defaulting to 48000Hz 2ch`);
 }
 
 // Target: 16kHz stereo 16-bit WAV
@@ -51,9 +53,19 @@ const targetRate = 16000;
 const channels = 2;
 const bitDepth = 16;
 
-// WAV writer
-const fd = fs.openSync(outputFile, 'w');
+// WAV writer — use explicit position tracking to avoid fd offset issues
+let writePos = 0;
 let dataSize = 0;
+const fd = fs.openSync(outputFile, 'w+'); // r/w mode
+
+function writeAt(buf, pos) {
+  fs.writeSync(fd, buf, 0, buf.length, pos);
+}
+
+function appendData(buf) {
+  fs.writeSync(fd, buf, 0, buf.length, writePos);
+  writePos += buf.length;
+}
 
 function writeWavHeader() {
   const byteRate = targetRate * channels * (bitDepth / 8);
@@ -72,17 +84,23 @@ function writeWavHeader() {
   buf.writeUInt16LE(bitDepth, 34);
   buf.write('data', 36);
   buf.writeUInt32LE(0, 40); // patched later
-  fs.writeSync(fd, buf, 0, 44, 0);
+  writeAt(buf, 0);
+  writePos = 44; // data starts after header
+  log(`WAV header written, writePos=${writePos}`);
 }
 
 function finalizeWav() {
-  const sizeBuf = Buffer.alloc(4);
-  sizeBuf.writeUInt32LE(dataSize, 0);
-  fs.writeSync(fd, sizeBuf, 0, 4, 40); // data chunk size
-  sizeBuf.writeUInt32LE(36 + dataSize, 0);
-  fs.writeSync(fd, sizeBuf, 0, 4, 4); // RIFF chunk size
+  // Patch data chunk size at offset 40
+  const dataSizeBuf = Buffer.alloc(4);
+  dataSizeBuf.writeUInt32LE(dataSize, 0);
+  writeAt(dataSizeBuf, 40);
+  // Patch RIFF chunk size at offset 4
+  const riffSizeBuf = Buffer.alloc(4);
+  riffSizeBuf.writeUInt32LE(36 + dataSize, 0);
+  writeAt(riffSizeBuf, 4);
   fs.closeSync(fd);
-  log(`WAV finalized: ${44 + dataSize} bytes total, ${dataSize} bytes audio data`);
+  const actualSize = fs.statSync(outputFile).size;
+  log(`WAV finalized: expected=${44 + dataSize}, actual=${actualSize} bytes, dataSize=${dataSize}`);
 }
 
 function downsample(input, fromRate, toRate) {
@@ -99,10 +117,24 @@ function downsample(input, fromRate, toRate) {
   return output;
 }
 
-function bufferToFloat32(buf) {
+function bufferToFloat32Mono(buf, inputChannels) {
   const int16 = new Int16Array(buf.buffer, buf.byteOffset, buf.byteLength / 2);
-  const float32 = new Float32Array(int16.length);
-  for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+  if (inputChannels <= 1) {
+    // Already mono
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+    return float32;
+  }
+  // Convert stereo to mono by averaging channels
+  const monoLen = Math.floor(int16.length / inputChannels);
+  const float32 = new Float32Array(monoLen);
+  for (let i = 0; i < monoLen; i++) {
+    let sum = 0;
+    for (let ch = 0; ch < inputChannels; ch++) {
+      sum += int16[i * inputChannels + ch] / 32768;
+    }
+    float32[i] = sum / inputChannels;
+  }
   return float32;
 }
 
@@ -116,7 +148,7 @@ function writeInterleavedSamples(left, right) {
     buf.writeInt16LE(lVal < 0 ? lVal * 32768 : lVal * 32767, i * 4);
     buf.writeInt16LE(rVal < 0 ? rVal * 32768 : rVal * 32767, i * 4 + 2);
   }
-  fs.writeSync(fd, buf, 0, buf.length);
+  appendData(buf);
   dataSize += buf.length;
 }
 
@@ -159,7 +191,7 @@ let lastLevelTime = 0;
 
 micRecorder.on('data', (buf) => {
   micDataCount++;
-  const float32 = bufferToFloat32(buf);
+  const float32 = bufferToFloat32Mono(buf, inputChannels);
   const downsampled = downsample(float32, sampleRate, targetRate);
   micBuf = concatF32(micBuf, downsampled);
 
@@ -184,7 +216,7 @@ micRecorder.on('error', (err) => log(`Mic error: ${err.message}`));
 if (sysRecorder) {
   sysRecorder.on('data', (buf) => {
     sysDataCount++;
-    const float32 = bufferToFloat32(buf);
+    const float32 = bufferToFloat32Mono(buf, inputChannels);
     const downsampled = downsample(float32, sampleRate, targetRate);
     sysBuf = concatF32(sysBuf, downsampled);
     flush();
