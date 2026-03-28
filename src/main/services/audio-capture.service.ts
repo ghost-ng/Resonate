@@ -187,7 +187,8 @@ export class AudioCaptureService {
 
   async startRecording(recordingId: number): Promise<void> {
     if (this.recording) {
-      throw new Error('Already recording');
+      console.warn('[AudioCapture] Already recording — ignoring duplicate start');
+      return;
     }
 
     const dir = this.getStorageDir();

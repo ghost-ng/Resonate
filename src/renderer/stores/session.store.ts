@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type RecordingPhase = 'idle' | 'device-select' | 'recording' | 'post-recording';
+export type RecordingPhase = 'idle' | 'recording' | 'post-recording';
 
 interface SessionState {
   isRecording: boolean;
@@ -11,8 +11,7 @@ interface SessionState {
   audioLevels: { mic: number; system: number };
   detectedApp: string | null;
   showAutoDetectBanner: boolean;
-  startRecording: () => void;
-  confirmStartRecording: (inputDeviceId: string, outputDeviceId: string) => Promise<void>;
+  startRecording: () => Promise<void>;
   stopRecording: () => Promise<void>;
   keepRecording: () => void;
   discardRecording: () => Promise<void>;
@@ -32,13 +31,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   detectedApp: null,
   showAutoDetectBanner: false,
 
-  startRecording: () => set({ recordingPhase: 'device-select' }),
+  startRecording: async () => {
+    // Prevent double-start
+    if (get().isRecording) return;
 
-  confirmStartRecording: async (_inputDeviceId, _outputDeviceId) => {
     try {
+      // Create DB record
       const recording = await window.electronAPI.invoke('recording:create', {
         title: `Recording ${new Date().toLocaleString()}`,
       });
+      // Start audio capture (uses default devices)
       await window.electronAPI.invoke('recording:start-capture', { recordingId: recording.id });
       set({
         isRecording: true,
@@ -46,18 +48,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         lastRecordingId: recording.id,
         durationMs: 0,
       });
-    } catch {
-      // IPC not available — proceed with mock state for UI development
-      set({
-        isRecording: true,
-        recordingPhase: 'recording',
-        lastRecordingId: null,
-        durationMs: 0,
-      });
+    } catch (err) {
+      console.error('[Session] Failed to start recording:', err);
     }
   },
 
   stopRecording: async () => {
+    if (!get().isRecording) return;
+
     try {
       const result = await window.electronAPI.invoke('recording:stop-capture', undefined);
       set({
@@ -65,12 +63,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         recordingPhase: 'post-recording',
         lastRecordingAudioPath: result.audioFilePath,
       });
-    } catch {
-      // IPC not available — proceed with mock state
+    } catch (err) {
+      console.error('[Session] Failed to stop recording:', err);
       set({
         isRecording: false,
-        recordingPhase: 'post-recording',
-        lastRecordingAudioPath: null,
+        recordingPhase: 'idle',
       });
     }
   },

@@ -4,7 +4,6 @@ import RecordingHeader from './RecordingHeader';
 import RecordButton from './RecordButton';
 import RecordingMetadata from './RecordingMetadata';
 import AutoDetectBanner from './AutoDetectBanner';
-import RecordingStartDialog from './RecordingStartDialog';
 import WaveformVisualizer from './WaveformVisualizer';
 import PostRecordingControls from './PostRecordingControls';
 import TranscriptCard from '../transcript/TranscriptCard';
@@ -16,10 +15,10 @@ export default function RecordingView() {
   const transcripts = useRecordingStore((s) => s.transcripts);
   const summaries = useRecordingStore((s) => s.summaries);
   const recordingPhase = useSessionStore((s) => s.recordingPhase);
-
   const startRecording = useSessionStore((s) => s.startRecording);
 
-  if (!activeTabId) {
+  // Empty state — no tab selected
+  if (!activeTabId && recordingPhase === 'idle') {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -41,8 +40,21 @@ export default function RecordingView() {
           </button>
           <p className="text-xs text-text-muted/60">or press Ctrl+R</p>
         </div>
+      </div>
+    );
+  }
 
-        {recordingPhase === 'device-select' && <RecordingStartDialog />}
+  // Recording in progress (no tab yet — recording was started from empty state)
+  if (!activeTabId && recordingPhase !== 'idle') {
+    return (
+      <div className="flex h-full flex-col overflow-y-auto">
+        <div className="flex flex-col gap-4 p-4">
+          <div className="flex items-center gap-4">
+            <RecordButton />
+          </div>
+          {recordingPhase === 'recording' && <WaveformVisualizer />}
+          {recordingPhase === 'post-recording' && <PostRecordingControls />}
+        </div>
       </div>
     );
   }
@@ -50,8 +62,8 @@ export default function RecordingView() {
   const recording = recordings.find((r) => r.id === activeTabId);
   if (!recording) return null;
 
-  const transcript = transcripts[activeTabId];
-  const summary = summaries[activeTabId];
+  const transcript = transcripts[activeTabId!];
+  const summary = summaries[activeTabId!];
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -72,8 +84,6 @@ export default function RecordingView() {
         {transcript && <TranscriptCard transcript={transcript} />}
         {summary && <SummaryCard summary={summary} />}
       </div>
-
-      {recordingPhase === 'device-select' && <RecordingStartDialog />}
     </div>
   );
 }
