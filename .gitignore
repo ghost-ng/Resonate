@@ -114,3 +114,4 @@ Desktop.ini
 
 # Build artifacts
 dist/
+.claude/worktrees/
