@@ -1,7 +1,10 @@
 import { ipcMain } from 'electron';
-import type { RecordingRepository } from '../db/repositories/recording.repo';
+import type { ServiceContainer } from '../index';
+import type { Recording } from '../../shared/types/database.types';
 
-export function registerRecordingHandlers(recordings: RecordingRepository): void {
+export function registerRecordingHandlers(services: ServiceContainer): void {
+  const { recordings, audioCapture } = services;
+
   ipcMain.handle('recording:list', (_, args?: { notebookId?: number; search?: string }) => {
     if (args?.search) {
       return recordings.search(args.search);
@@ -17,7 +20,7 @@ export function registerRecordingHandlers(recordings: RecordingRepository): void
     recordings.create(args)
   );
 
-  ipcMain.handle('recording:update', (_, args: { id: number; title?: string; notebook_id?: number | null; status?: string }) =>
+  ipcMain.handle('recording:update', (_, args: { id: number; title?: string; notebook_id?: number | null; status?: Recording['status'] }) =>
     recordings.update(args.id, args)
   );
 
@@ -25,13 +28,13 @@ export function registerRecordingHandlers(recordings: RecordingRepository): void
     recordings.delete(args.id);
   });
 
-  // Stubs for capture — will be wired to native audio capture later
-  ipcMain.handle('recording:start-capture', (_) => {
-    console.log('[stub] recording:start-capture');
+  ipcMain.handle('recording:start-capture', async (_, args: { recordingId: number }) => {
+    await audioCapture.startRecording(args.recordingId);
+    recordings.update(args.recordingId, { status: 'recording' });
   });
 
-  ipcMain.handle('recording:stop-capture', () => {
-    console.log('[stub] recording:stop-capture');
-    return { durationSeconds: 0, audioFilePath: '' };
+  ipcMain.handle('recording:stop-capture', async () => {
+    const result = await audioCapture.stopRecording();
+    return result;
   });
 }

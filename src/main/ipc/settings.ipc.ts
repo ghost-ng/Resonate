@@ -1,7 +1,9 @@
 import { ipcMain } from 'electron';
-import type { SettingsRepository } from '../db/repositories/settings.repo';
+import type { ServiceContainer } from '../index';
 
-export function registerSettingsHandlers(settings: SettingsRepository): void {
+export function registerSettingsHandlers(services: ServiceContainer): void {
+  const { settings, audioCapture } = services;
+
   ipcMain.handle('settings:get', (_, args: { key: string }) =>
     settings.get(args.key) ?? null
   );
@@ -19,8 +21,7 @@ export function registerSettingsHandlers(settings: SettingsRepository): void {
     return map;
   });
 
-  // Stub — will enumerate system audio devices later
-  ipcMain.handle('audio:get-devices', () => {
-    return { inputs: [], outputs: [] };
+  ipcMain.handle('audio:get-devices', async () => {
+    return await audioCapture.getDevices();
   });
 }

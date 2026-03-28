@@ -18,8 +18,8 @@ export const useSessionStore = create<SessionState>((set) => ({
   isRecording: false,
   durationMs: 0,
   audioLevels: { mic: 0, system: 0 },
-  detectedApp: 'Microsoft Teams',
-  showAutoDetectBanner: true,
+  detectedApp: null,
+  showAutoDetectBanner: false,
 
   startRecording: () => set({ isRecording: true, durationMs: 0 }),
   stopRecording: () => set({ isRecording: false }),
