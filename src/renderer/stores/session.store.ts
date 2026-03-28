@@ -11,7 +11,7 @@ interface SessionState {
   audioLevels: { mic: number; system: number };
   detectedApp: string | null;
   showAutoDetectBanner: boolean;
-  startRecording: () => Promise<void>;
+  startRecording: (notebookId?: number) => Promise<void>;
   stopRecording: () => Promise<void>;
   keepRecording: () => void;
   discardRecording: () => Promise<void>;
@@ -31,14 +31,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   detectedApp: null,
   showAutoDetectBanner: false,
 
-  startRecording: async () => {
-    // Prevent double-start
+  startRecording: async (notebookId?: number) => {
     if (get().isRecording) return;
 
     try {
-      // Create DB record
       const recording = await window.electronAPI.invoke('recording:create', {
         title: `Recording ${new Date().toLocaleString()}`,
+        notebookId,
       });
       // Start audio capture (uses default devices)
       await window.electronAPI.invoke('recording:start-capture', { recordingId: recording.id });

@@ -1,5 +1,7 @@
 import { useRecordingStore } from '../../stores/recording.store';
+import { useNotebookStore } from '../../stores/notebook.store';
 import { useSessionStore } from '../../stores/session.store';
+import { ALL_RECORDINGS_ID } from '../../lib/constants';
 import RecordingHeader from './RecordingHeader';
 import RecordButton from './RecordButton';
 import RecordingMetadata from './RecordingMetadata';
@@ -17,6 +19,12 @@ export default function RecordingView() {
   const summaries = useRecordingStore((s) => s.summaries);
   const recordingPhase = useSessionStore((s) => s.recordingPhase);
   const startRecording = useSessionStore((s) => s.startRecording);
+  const selectedNotebookId = useNotebookStore((s) => s.selectedNotebookId);
+  const notebooks = useNotebookStore((s) => s.notebooks);
+
+  const selectedNotebook = selectedNotebookId !== ALL_RECORDINGS_ID
+    ? notebooks.find((n) => n.id === selectedNotebookId)
+    : null;
 
   // Empty state — no tab selected
   if (!activeTabId && recordingPhase === 'idle') {
@@ -31,9 +39,18 @@ export default function RecordingView() {
               <line x1="8" y1="23" x2="16" y2="23" />
             </svg>
           </div>
-          <p className="text-sm text-text-muted">Select a recording or start a new one</p>
+          {selectedNotebook && (
+            <p className="text-md font-medium text-text">
+              {selectedNotebook.icon} {selectedNotebook.name}
+            </p>
+          )}
+          <p className="text-sm text-text-muted">
+            {selectedNotebook
+              ? `Start a recording in this notebook`
+              : 'Select a recording or start a new one'}
+          </p>
           <button
-            onClick={startRecording}
+            onClick={() => startRecording(selectedNotebook?.id)}
             className="flex items-center gap-2 rounded-full bg-recording px-6 py-2.5 text-sm font-medium text-white transition-all hover:bg-recording/90 hover:shadow-[0_0_20px_rgba(255,59,59,0.3)]"
           >
             <span className="h-2.5 w-2.5 rounded-full bg-white/90" />

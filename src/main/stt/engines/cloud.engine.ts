@@ -17,6 +17,10 @@ export class CloudEngine implements SttEngine {
     wavPath: string,
     config: SttEngineConfig
   ): Promise<TranscriptSegment[]> {
+    if (!config.cloudEndpoint && !config.cloudApiKey) {
+      throw new Error('Cloud STT not configured. Go to Settings → STT Engine and enter your API endpoint and key.');
+    }
+
     const endpoint = (config.cloudEndpoint ?? 'https://api.openai.com').replace(
       /\/+$/,
       ''
@@ -24,6 +28,8 @@ export class CloudEngine implements SttEngine {
     const url = `${endpoint}/v1/audio/transcriptions`;
     const apiKey = config.cloudApiKey ?? '';
     const model = config.cloudModel ?? 'whisper-1';
+
+    console.log(`[CloudSTT] Transcribing: ${wavPath} via ${url} (model: ${model})`);
 
     const fileBuffer = fs.readFileSync(wavPath);
     const fileName = path.basename(wavPath);
