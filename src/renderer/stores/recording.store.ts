@@ -14,6 +14,7 @@ interface RecordingState {
   setActiveTab: (id: number) => void;
   fetchTranscript: (recordingId: number) => Promise<void>;
   fetchSummary: (recordingId: number) => Promise<void>;
+  updateRecording: (id: number, updates: { title?: string; notebook_id?: number | null }) => Promise<void>;
   deleteRecording: (id: number) => Promise<void>;
 }
 
@@ -73,6 +74,21 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       }
     } catch {
       // IPC not available
+    }
+  },
+
+  updateRecording: async (id, updates) => {
+    try {
+      const updated = await window.electronAPI.invoke('recording:update', { id, ...updates });
+      if (updated) {
+        set({ recordings: get().recordings.map(r => r.id === id ? updated : r) });
+      }
+    } catch {
+      set({
+        recordings: get().recordings.map(r =>
+          r.id === id ? { ...r, ...updates, updated_at: new Date().toISOString() } : r
+        ),
+      });
     }
   },
 

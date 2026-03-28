@@ -1,16 +1,12 @@
-import { useNotebookStore } from '../../stores/notebook.store';
 import { useUiStore } from '../../stores/ui.store';
 
 export default function SidebarFooter() {
-  const createNotebook = useNotebookStore((s) => s.createNotebook);
   const setSettingsPanelOpen = useUiStore((s) => s.setSettingsPanelOpen);
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
 
   const handleNewNotebook = () => {
-    const emojis = ['📁', '📓', '📝', '📋', '🗂️'];
-    const emoji = emojis[Math.floor(Math.random() * emojis.length)];
-    createNotebook('New Notebook', emoji);
+    window.dispatchEvent(new CustomEvent('yourecord:new-notebook'));
   };
 
   return (
