@@ -12,50 +12,26 @@ interface SettingsState {
   fetchAudioDevices: () => Promise<void>;
 }
 
-const MOCK_SETTINGS: Record<string, string> = {
+const DEFAULT_SETTINGS: Record<string, string> = {
   stt_engine: 'whisper',
   ai_model: 'gpt-4o',
-  ai_endpoint: 'https://api.openai.com/v1',
-  storage_path: 'C:\\Users\\miguel\\AppData\\Local\\youRecord',
   auto_detect_enabled: 'true',
 };
 
-const MOCK_PROFILES: PromptProfile[] = [
-  {
-    id: 1, name: 'Default Meeting Notes', is_default: 1,
-    system_prompt: 'You are a meeting notes assistant.',
-    user_prompt_template: 'Summarize the following transcript:\n\n{{transcript}}',
-    created_at: '2026-03-01T00:00:00Z', updated_at: '2026-03-01T00:00:00Z',
-  },
-];
-
-const MOCK_DEVICES: { inputs: AudioDeviceInfo[]; outputs: AudioDeviceInfo[] } = {
-  inputs: [
-    { id: 'default', name: 'Default Microphone', isDefault: true },
-    { id: 'usb-mic', name: 'Blue Yeti USB', isDefault: false },
-  ],
-  outputs: [
-    { id: 'default', name: 'Default Speakers', isDefault: true },
-    { id: 'headphones', name: 'WH-1000XM5', isDefault: false },
-  ],
-};
-
 export const useSettingsStore = create<SettingsState>((set) => ({
-  settings: MOCK_SETTINGS,
-  promptProfiles: MOCK_PROFILES,
-  audioDevices: MOCK_DEVICES,
+  settings: DEFAULT_SETTINGS,
+  promptProfiles: [],
+  audioDevices: { inputs: [], outputs: [] },
 
   fetchSettings: async () => {
     try {
       const result = await window.electronAPI.invoke('settings:getAll', undefined);
       if (result && Object.keys(result).length > 0) {
         set({ settings: result });
-        return;
       }
     } catch {
-      // fallback
+      // fallback to defaults
     }
-    set({ settings: MOCK_SETTINGS });
   },
 
   setSetting: async (key, value) => {
@@ -70,14 +46,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   fetchPromptProfiles: async () => {
     try {
       const result = await window.electronAPI.invoke('prompt-profile:list', undefined);
-      if (result && result.length > 0) {
+      if (result) {
         set({ promptProfiles: result });
-        return;
       }
     } catch {
       // fallback
     }
-    set({ promptProfiles: MOCK_PROFILES });
   },
 
   fetchAudioDevices: async () => {
@@ -85,11 +59,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const result = await window.electronAPI.invoke('audio:get-devices', undefined);
       if (result) {
         set({ audioDevices: result });
-        return;
       }
     } catch {
       // fallback
     }
-    set({ audioDevices: MOCK_DEVICES });
   },
 }));
