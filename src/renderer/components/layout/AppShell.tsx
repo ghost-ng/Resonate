@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ALL_RECORDINGS_ID } from '../../lib/constants';
 import { useUiStore } from '../../stores/ui.store';
 import { useNotebookStore } from '../../stores/notebook.store';
 import { useRecordingStore } from '../../stores/recording.store';
@@ -52,7 +53,11 @@ export default function AppShell() {
   const deleteNotebook = useNotebookStore((s) => s.deleteNotebook);
   const updateNotebook = useNotebookStore((s) => s.updateNotebook);
   const updateRecording = useRecordingStore((s) => s.updateRecording);
+  const moveToNotebook = useRecordingStore((s) => s.moveToNotebook);
+  const fetchRecordings = useRecordingStore((s) => s.fetchRecordings);
   const recordings = useRecordingStore((s) => s.recordings);
+  const notebooks = useNotebookStore((s) => s.notebooks);
+  const selectedNotebookId = useNotebookStore((s) => s.selectedNotebookId);
 
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => {
     if (!ctxMenu.target) return [];
@@ -81,6 +86,19 @@ export default function AppShell() {
 
     if (type === 'recording') {
       const recording = recordings.find((r) => r.id === id);
+      const moveItems: ContextMenuItem[] = notebooks
+        .filter((nb) => nb.id !== recording?.notebook_id)
+        .map((nb) => ({
+          label: `Move to: ${nb.name}`,
+          action: () => {
+            moveToNotebook(id, nb.id);
+            // Re-fetch recordings for the current view after move
+            if (selectedNotebookId !== ALL_RECORDINGS_ID) {
+              fetchRecordings(selectedNotebookId);
+            }
+          },
+        }));
+
       return [
         {
           label: 'Rename',
@@ -89,6 +107,9 @@ export default function AppShell() {
             setRenameTarget({ type: 'recording', id, currentName: recording?.title ?? '' });
           },
         },
+        ...(moveItems.length > 0
+          ? [{ label: '', action: () => {}, separator: true } as ContextMenuItem, ...moveItems]
+          : []),
         { label: '', action: () => {}, separator: true },
         {
           label: 'Delete',
@@ -101,7 +122,7 @@ export default function AppShell() {
     }
 
     return [];
-  }, [ctxMenu.target, recordings]);
+  }, [ctxMenu.target, recordings, notebooks, selectedNotebookId, moveToNotebook, fetchRecordings]);
 
   const handleConfirmRename = useCallback(() => {
     if (!renameTarget || !renameValue.trim()) return;
