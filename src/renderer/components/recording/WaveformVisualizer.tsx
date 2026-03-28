@@ -19,31 +19,39 @@ export default function WaveformVisualizer() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const { width, height } = canvas;
+    // Use logical size (CSS pixels) for drawing
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
     const halfHeight = height / 2;
     const micBuffer = micBufferRef.current;
     const systemBuffer = systemBufferRef.current;
 
-    ctx.clearRect(0, 0, width, height);
+    // Calculate bar size to fill the width
+    const totalBarWidth = width / BUFFER_SIZE;
+    const barW = Math.max(totalBarWidth - BAR_GAP, 1);
 
-    // Draw mic waveform (top half)
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw mic waveform (top half, bars grow upward from center)
     for (let i = 0; i < BUFFER_SIZE; i++) {
-      const x = i * (BAR_WIDTH + BAR_GAP);
-      const barHeight = micBuffer[i] * (halfHeight - 4);
+      const x = i * totalBarWidth;
+      const level = Math.min(micBuffer[i] * 8, 1); // amplify for visibility
+      const barHeight = level * (halfHeight - 4);
       ctx.fillStyle = MIC_COLOR;
-      ctx.fillRect(x, halfHeight - barHeight - 2, BAR_WIDTH, Math.max(barHeight, 1));
+      ctx.fillRect(x, halfHeight - barHeight - 1, barW, Math.max(barHeight, 0.5));
     }
 
-    // Draw divider line
-    ctx.fillStyle = 'rgba(139, 144, 165, 0.2)';
+    // Draw center line
+    ctx.fillStyle = 'rgba(139, 144, 165, 0.15)';
     ctx.fillRect(0, halfHeight - 0.5, width, 1);
 
-    // Draw system waveform (bottom half)
+    // Draw system waveform (bottom half, bars grow downward from center)
     for (let i = 0; i < BUFFER_SIZE; i++) {
-      const x = i * (BAR_WIDTH + BAR_GAP);
-      const barHeight = systemBuffer[i] * (halfHeight - 4);
+      const x = i * totalBarWidth;
+      const level = Math.min(systemBuffer[i] * 8, 1);
+      const barHeight = level * (halfHeight - 4);
       ctx.fillStyle = SYSTEM_COLOR;
-      ctx.fillRect(x, halfHeight + 2, BAR_WIDTH, Math.max(barHeight, 1));
+      ctx.fillRect(x, halfHeight + 1, barW, Math.max(barHeight, 0.5));
     }
 
     animFrameRef.current = requestAnimationFrame(draw);
