@@ -3,6 +3,7 @@ import { useSessionStore } from '../../stores/session.store';
 import RecordingHeader from './RecordingHeader';
 import RecordButton from './RecordButton';
 import RecordingMetadata from './RecordingMetadata';
+import AudioPlayer from './AudioPlayer';
 import AutoDetectBanner from './AutoDetectBanner';
 import WaveformVisualizer from './WaveformVisualizer';
 import PostRecordingControls from './PostRecordingControls';
@@ -80,6 +81,11 @@ export default function RecordingView() {
 
         {recordingPhase === 'recording' && <WaveformVisualizer />}
         {recordingPhase === 'post-recording' && <PostRecordingControls />}
+
+        {/* Audio player for saved recordings with audio files */}
+        {recordingPhase === 'idle' && recording.audio_file_path && (
+          <AudioPlayer audioPath={recording.audio_file_path} recordingId={recording.id} />
+        )}
 
         {transcript && <TranscriptCard transcript={transcript} />}
         {summary && <SummaryCard summary={summary} />}
