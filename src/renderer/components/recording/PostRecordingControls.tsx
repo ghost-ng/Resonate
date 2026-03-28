@@ -1,12 +1,24 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useSessionStore } from '../../stores/session.store';
+import { useRecordingStore } from '../../stores/recording.store';
 import { formatTimestamp } from '../../lib/formatters';
 
 export default function PostRecordingControls() {
   const audioPath = useSessionStore((s) => s.lastRecordingAudioPath);
   const recordingId = useSessionStore((s) => s.lastRecordingId);
-  const keepRecording = useSessionStore((s) => s.keepRecording);
+  const keepRecordingSession = useSessionStore((s) => s.keepRecording);
   const discardRecording = useSessionStore((s) => s.discardRecording);
+  const openTab = useRecordingStore((s) => s.openTab);
+  const fetchRecordings = useRecordingStore((s) => s.fetchRecordings);
+
+  const handleKeep = useCallback(() => {
+    const id = recordingId;
+    keepRecordingSession();
+    if (id) {
+      fetchRecordings();
+      openTab(id);
+    }
+  }, [recordingId, keepRecordingSession, fetchRecordings, openTab]);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -134,7 +146,7 @@ export default function PostRecordingControls() {
       {/* Action buttons */}
       <div className="flex items-center gap-2">
         <button
-          onClick={keepRecording}
+          onClick={handleKeep}
           className="rounded-card px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110"
           style={{ backgroundColor: '#00c853' }}
         >
