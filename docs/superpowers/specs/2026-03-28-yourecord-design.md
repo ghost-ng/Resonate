@@ -119,6 +119,17 @@ youRecord is a Windows Electron desktop app that captures audio from video/voice
 | completed | INTEGER | 0 or 1 |
 | sort_order | INTEGER | |
 
+### prompt_profiles
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PK | Auto-increment |
+| name | TEXT | "Standup Notes", "Design Review", etc. |
+| system_prompt | TEXT | Custom system prompt |
+| user_prompt_template | TEXT | Template with {{variables}} |
+| is_default | INTEGER | 0 or 1 |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
+
 ### settings (key-value)
 | Column | Type | Description |
 |--------|------|-------------|
@@ -126,6 +137,8 @@ youRecord is a Windows Electron desktop app that captures audio from video/voice
 | value | TEXT | JSON-encoded value |
 
 Audio files stored on disk, database stores path only.
+
+API keys encrypted using Electron's `safeStorage` API (uses OS-level credential storage — DPAPI on Windows).
 
 ---
 
@@ -137,7 +150,7 @@ Audio files stored on disk, database stores path only.
 2. Audio Capture Manager starts two WASAPI streams:
    - **System audio loopback** — captures what you hear (other participants)
    - **Microphone input** — captures your voice
-3. Both streams mixed and written to WAV file
+3. Both streams written to stereo WAV (mic = left channel, system = right channel) for better speaker diarization
 4. Silent buffer trick applied to loopback stream (prevents WASAPI stalls during silence)
 5. Recording saved to disk, recording row created in DB with status `recording`
 
