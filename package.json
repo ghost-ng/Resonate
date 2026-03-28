@@ -3,7 +3,7 @@
   "productName": "youRecord",
   "version": "0.1.0",
   "description": "Desktop recording and note-taking app",
-  "main": ".vite/build/main.js",
+  "main": ".vite/build/index.js",
   "private": true,
   "scripts": {
     "start": "electron-forge start",
