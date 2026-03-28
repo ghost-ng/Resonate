@@ -102,7 +102,7 @@ const createWindow = (services: ServiceContainer) => {
     minHeight: 600,
     backgroundColor: '#0f1117',
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
