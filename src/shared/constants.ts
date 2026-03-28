@@ -1,0 +1,9 @@
+export const APP_NAME = 'youRecord';
+export const DB_FILENAME = 'yourecord.db';
+export const AUDIO_SAMPLE_RATE = 16000;
+export const AUDIO_CHANNELS = 2;
+export const AUDIO_BIT_DEPTH = 16;
+export const PROCESS_MONITOR_INTERVAL_MS = 5000;
+export const STT_WORKER_TIMEOUT_MS = 300_000;
+export const DEFAULT_SYSTEM_PROMPT = `You are a meeting notes assistant. Analyze the provided transcript and produce structured notes including: key decisions, discussion topics, action items with assignees, and a brief summary. Format in markdown.`;
+export const DEFAULT_USER_PROMPT_TEMPLATE = `Here is the transcript from a {{duration}} minute {{source_app}} call with {{participant_count}} participants:\n\n{{transcript}}\n\nPlease generate structured meeting notes.`;
