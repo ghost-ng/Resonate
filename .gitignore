@@ -96,6 +96,9 @@ out/
 *.sqlite
 *.sqlite3
 
+# Audio files
+*.wav
+
 # Native addons
 *.node
 
