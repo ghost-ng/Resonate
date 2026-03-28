@@ -33,7 +33,7 @@ export default function PostRecordingControls() {
   }, []);
 
   const handleLoadedMetadata = useCallback(() => {
-    if (audioRef.current) {
+    if (audioRef.current && isFinite(audioRef.current.duration)) {
       setDuration(audioRef.current.duration * 1000);
     }
   }, []);

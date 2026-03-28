@@ -18,6 +18,7 @@ export function formatDurationShort(seconds: number): string {
 
 /** Format milliseconds as HH:MM:SS timestamp */
 export function formatTimestamp(ms: number): string {
+  if (!isFinite(ms) || isNaN(ms)) return '--:--';
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
