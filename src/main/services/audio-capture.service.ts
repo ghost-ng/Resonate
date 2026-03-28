@@ -81,10 +81,14 @@ class NativeStream implements CaptureStream {
   }
 
   async start(): Promise<void> {
+    let dataCount = 0;
     this.recorder.on('data', (buffer: Buffer) => {
+      dataCount++;
+      if (dataCount <= 3) {
+        console.log(`[AudioCapture] ${this.deviceType} data event #${dataCount}: ${buffer.length} bytes`);
+      }
       if (this.dataCb) {
         // native-recorder-nodejs emits 16-bit PCM as Buffer
-        // Convert to Float32Array for our pipeline
         const int16 = new Int16Array(buffer.buffer, buffer.byteOffset, buffer.byteLength / 2);
         const float32 = new Float32Array(int16.length);
         for (let i = 0; i < int16.length; i++) {
@@ -96,7 +100,9 @@ class NativeStream implements CaptureStream {
     this.recorder.on('error', (err) => {
       console.error(`[AudioCapture] Stream error (${this.deviceType}):`, err);
     });
+    console.log(`[AudioCapture] Starting ${this.deviceType} stream, device=${this.deviceId}`);
     await this.recorder.start({ deviceType: this.deviceType, deviceId: this.deviceId });
+    console.log(`[AudioCapture] ${this.deviceType} stream started`);
   }
 
   stop(): void {
@@ -297,23 +303,31 @@ export class AudioCaptureService {
     const defaultInput = inputDevices.find((d) => d.isDefault) ?? inputDevices[0];
     const defaultOutput = outputDevices.find((d) => d.isDefault) ?? outputDevices[0];
 
-    if (!defaultInput || !defaultOutput) {
-      console.error('[AudioCapture] No audio devices found, falling back to stub');
+    if (!defaultInput) {
+      console.error('[AudioCapture] No input devices found, falling back to stub');
       this.startStubCapture();
       return;
     }
 
+    console.log('[AudioCapture] Input devices:', inputDevices.map(d => `${d.name} (${d.id}, default=${d.isDefault})`));
+    console.log('[AudioCapture] Output devices:', outputDevices.map(d => `${d.name} (${d.id}, default=${d.isDefault})`));
+
     // Check device sample rate for downsampling
     try {
-      const format = this.nativeRecorder.AudioRecorder.getDeviceFormat(defaultOutput.id);
+      const format = this.nativeRecorder.AudioRecorder.getDeviceFormat(defaultInput.id);
       this.sourceSampleRate = format.sampleRate || 48000;
+      console.log(`[AudioCapture] Input device format: ${format.sampleRate}Hz, ${format.channels}ch, ${format.bitDepth}bit`);
     } catch {
       this.sourceSampleRate = 48000;
     }
 
+    // Use the default output device ID, or SYSTEM_AUDIO_DEVICE_ID for loopback
+    const outputDeviceId = defaultOutput?.id ?? this.nativeRecorder.SYSTEM_AUDIO_DEVICE_ID ?? 'system';
+    console.log(`[AudioCapture] Using mic=${defaultInput.id}, system=${outputDeviceId}`);
+
     // Create streams
     const micNative = new NativeStream(this.nativeRecorder, 'input', defaultInput.id);
-    const sysNative = new NativeStream(this.nativeRecorder, 'output', defaultOutput.id);
+    const sysNative = new NativeStream(this.nativeRecorder, 'output', outputDeviceId);
 
     micNative.onData((data) => this.handleMicData(data));
     sysNative.onData((data) => this.handleSystemData(data));
