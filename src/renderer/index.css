@@ -1,0 +1,102 @@
+@import 'tailwindcss';
+
+@theme {
+  /* Colors */
+  --color-bg: hsl(228, 20%, 9%);
+  --color-surface: hsl(228, 18%, 14%);
+  --color-surface-2: hsl(228, 16%, 18%);
+  --color-surface-3: hsl(228, 14%, 22%);
+  --color-border: hsl(228, 12%, 26%);
+  --color-text: #e4e6ef;
+  --color-text-muted: #8b90a5;
+  --color-accent: #5b8def;
+  --color-accent-hover: #6e9cf2;
+  --color-accent-glow: rgba(91, 141, 239, 0.15);
+  --color-success: #00c853;
+  --color-danger: #ff5252;
+  --color-recording: #ff3b3b;
+
+  /* Font families */
+  --font-sans: 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Cascadia Code', 'JetBrains Mono', monospace;
+
+  /* Font sizes */
+  --font-size-xs: 10px;
+  --font-size-sm: 11px;
+  --font-size-base: 12px;
+  --font-size-md: 13px;
+  --font-size-lg: 14px;
+  --font-size-xl: 16px;
+  --font-size-2xl: 22px;
+
+  /* Widths */
+  --width-sidebar: 220px;
+
+  /* Border radius */
+  --radius-card: 6px;
+
+  /* Spacing */
+  --spacing-card: 10px;
+
+  /* Animations */
+  --animate-pulse-recording: pulse 1.5s ease-in-out infinite;
+  --animate-recording-ring: recording-ring 1.5s ease-out infinite;
+  --animate-slide-down: slide-down 0.3s ease-out;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes recording-ring {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes slide-down {
+  0% { transform: translateY(-100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* Base styles */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-accent-glow);
+  color: var(--color-text);
+}
