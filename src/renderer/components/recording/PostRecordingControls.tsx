@@ -26,34 +26,42 @@ export default function PostRecordingControls() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  const handleTimeUpdate = useCallback(() => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime * 1000);
-    }
-  }, []);
-
-  const handleLoadedMetadata = useCallback(() => {
-    if (audioRef.current && isFinite(audioRef.current.duration)) {
+  const tryReadDuration = useCallback(() => {
+    if (audioRef.current && isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
       setDuration(audioRef.current.duration * 1000);
     }
   }, []);
 
+  const handleTimeUpdate = useCallback(() => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime * 1000);
+      // Fallback: try reading duration on every time update
+      if (duration === 0) tryReadDuration();
+    }
+  }, [duration, tryReadDuration]);
+
   const handleEnded = useCallback(() => {
     setIsPlaying(false);
+    // When playback ends, currentTime = duration, so we know the real duration
+    if (audioRef.current && audioRef.current.currentTime > 0) {
+      setDuration(audioRef.current.currentTime * 1000);
+    }
   }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('loadedmetadata', tryReadDuration);
+    audio.addEventListener('durationchange', tryReadDuration);
     audio.addEventListener('ended', handleEnded);
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('loadedmetadata', tryReadDuration);
+      audio.removeEventListener('durationchange', tryReadDuration);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [handleTimeUpdate, handleLoadedMetadata, handleEnded]);
+  }, [handleTimeUpdate, tryReadDuration, handleEnded]);
 
   const togglePlayPause = () => {
     const audio = audioRef.current;

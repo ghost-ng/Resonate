@@ -49,28 +49,15 @@ export class SttRouterService {
 
     const config = this.buildConfig(engineName);
 
-    // Run STT on the left channel (mic = "You") and right channel (system = "Other")
-    const [leftSegments, rightSegments] = await Promise.all([
-      engine.transcribe(wavPath + '.left.wav', config),
-      engine.transcribe(wavPath + '.right.wav', config),
-    ]);
+    // Transcribe the stereo WAV directly
+    // The WAV contains mic (left) + system audio (right) already mixed
+    const segments = await engine.transcribe(wavPath, config);
 
-    // Assign speakers
-    const youSegments = leftSegments.map((seg) => ({
+    // If no speaker labels from the engine, default to "Speaker"
+    return segments.map((seg) => ({
       ...seg,
-      speaker: 'You',
+      speaker: seg.speaker || 'Speaker',
     }));
-    const otherSegments = rightSegments.map((seg) => ({
-      ...seg,
-      speaker: 'Other',
-    }));
-
-    // Merge and sort by start time
-    const merged = [...youSegments, ...otherSegments].sort(
-      (a, b) => a.start_time_ms - b.start_time_ms
-    );
-
-    return merged;
   }
 
   async getAvailableEngines(): Promise<
