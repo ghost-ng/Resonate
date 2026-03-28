@@ -140,11 +140,20 @@ const createWindow = (services: ServiceContainer) => {
   return mainWindow;
 };
 
+// Register custom protocol scheme before app is ready
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'audio-file', privileges: { bypassCSP: true, stream: true, supportFetchAPI: true } },
+]);
+
 app.on('ready', () => {
-  // Register custom protocol to serve local audio files
+  // Register protocol handler to serve local audio files
   protocol.handle('audio-file', (request) => {
-    // URL format: audio-file:///C:/path/to/file.wav
-    const filePath = decodeURIComponent(request.url.replace('audio-file:///', '').replace('audio-file://', ''));
+    const url = request.url;
+    // audio-file:///C:/path/to/file.wav → C:/path/to/file.wav
+    let filePath = decodeURIComponent(url.slice('audio-file:///'.length));
+    // Handle Windows paths
+    filePath = filePath.replace(/\//g, path.sep);
+    console.log('[Protocol] Serving audio file:', filePath);
     return net.fetch(pathToFileURL(filePath).href);
   });
 

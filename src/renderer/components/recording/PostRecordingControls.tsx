@@ -7,9 +7,10 @@ export default function PostRecordingControls() {
   const audioPath = useSessionStore((s) => s.lastRecordingAudioPath);
   const recordingId = useSessionStore((s) => s.lastRecordingId);
   const keepRecordingSession = useSessionStore((s) => s.keepRecording);
-  const discardRecording = useSessionStore((s) => s.discardRecording);
+  const discardRecordingSession = useSessionStore((s) => s.discardRecording);
   const openTab = useRecordingStore((s) => s.openTab);
   const fetchRecordings = useRecordingStore((s) => s.fetchRecordings);
+  const deleteRecording = useRecordingStore((s) => s.deleteRecording);
 
   const handleKeep = useCallback(() => {
     const id = recordingId;
@@ -153,7 +154,11 @@ export default function PostRecordingControls() {
           Keep
         </button>
         <button
-          onClick={discardRecording}
+          onClick={() => {
+            const id = recordingId;
+            discardRecordingSession();
+            if (id) deleteRecording(id);
+          }}
           className="rounded-card px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110"
           style={{ backgroundColor: '#ff5252' }}
         >
