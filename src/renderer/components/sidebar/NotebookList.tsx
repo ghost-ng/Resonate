@@ -42,6 +42,7 @@ export default function NotebookList() {
         count={totalCount}
         active={selectedId === ALL_RECORDINGS_ID}
         onClick={() => handleSelectNotebook(ALL_RECORDINGS_ID)}
+        onContextMenu={(e) => ctxMenu.show(e, { type: 'all-recordings', id: ALL_RECORDINGS_ID })}
       />
       {notebooks.map((nb) => (
         <NotebookItem
