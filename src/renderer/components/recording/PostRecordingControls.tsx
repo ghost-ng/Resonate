@@ -82,21 +82,32 @@ export default function PostRecordingControls() {
     audio.currentTime = (fraction * duration) / 1000;
   };
 
+  const fetchTranscript = useRecordingStore((s) => s.fetchTranscript);
+  const fetchSummary = useRecordingStore((s) => s.fetchSummary);
+
+  const [transcribeStatus, setTranscribeStatus] = useState('');
+
   const handleTranscribe = async () => {
     if (!recordingId) return;
+    setTranscribeStatus('Transcribing...');
     try {
       await window.electronAPI.invoke('transcript:start', { recordingId });
-    } catch {
-      // IPC not available
+      setTranscribeStatus('Done!');
+      fetchTranscript(recordingId);
+    } catch (err: any) {
+      setTranscribeStatus(`Error: ${err?.message || 'Failed'}`);
     }
   };
 
   const handleSendToAi = async () => {
     if (!recordingId) return;
+    setTranscribeStatus('Generating summary...');
     try {
       await window.electronAPI.invoke('summary:generate', { recordingId });
-    } catch {
-      // IPC not available
+      setTranscribeStatus('Summary complete!');
+      fetchSummary(recordingId);
+    } catch (err: any) {
+      setTranscribeStatus(`Error: ${err?.message || 'Failed'}`);
     }
   };
 
@@ -188,6 +199,13 @@ export default function PostRecordingControls() {
           Send to AI
         </button>
       </div>
+
+      {/* Status message */}
+      {transcribeStatus && (
+        <p className={`mt-2 text-xs ${transcribeStatus.startsWith('Error') ? 'text-danger' : 'text-text-muted'}`}>
+          {transcribeStatus}
+        </p>
+      )}
     </div>
   );
 }
