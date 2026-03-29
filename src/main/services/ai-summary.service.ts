@@ -143,10 +143,16 @@ export class AiSummaryService {
       10
     );
 
-    // 3. Decrypt API key
-    const apiKey = encryptedKey
-      ? this.safeStorage.decrypt(encryptedKey)
-      : '';
+    // 3. Get API key — try to decrypt, fall back to plain text
+    let apiKey = '';
+    if (encryptedKey) {
+      try {
+        apiKey = this.safeStorage.decrypt(encryptedKey);
+      } catch {
+        // Key was stored as plain text (not encrypted)
+        apiKey = encryptedKey;
+      }
+    }
 
     // 3b. Determine provider type
     const providerType: AiProviderType =

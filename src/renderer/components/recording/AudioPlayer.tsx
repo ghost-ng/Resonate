@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { formatTimestamp } from '../../lib/formatters';
 import { useNotebookStore } from '../../stores/notebook.store';
 import { useRecordingStore } from '../../stores/recording.store';
+import { useSettingsStore } from '../../stores/settings.store';
 import { ALL_RECORDINGS_ID } from '../../lib/constants';
 import Dropdown from '../shared/Dropdown';
 import type { DropdownItem } from '../shared/Dropdown';
@@ -119,10 +120,10 @@ export default function AudioPlayer({ audioPath, recordingId, onStatusChange }: 
     }
   };
 
-  const handleSendToAi = async () => {
+  const handleSendToAi = async (profileId?: number) => {
     setStatus('Generating summary...');
     try {
-      await window.electronAPI.invoke('summary:generate', { recordingId });
+      await window.electronAPI.invoke('summary:generate', { recordingId, profileId });
       setStatus('Summary complete');
       onStatusChange?.('summarized');
     } catch (err: any) {
@@ -131,6 +132,19 @@ export default function AudioPlayer({ audioPath, recordingId, onStatusChange }: 
       console.error('Send to AI failed:', err);
     }
   };
+
+  const promptProfiles = useSettingsStore((s) => s.promptProfiles);
+
+  const aiProfileItems = useMemo<DropdownItem[]>(() => {
+    if (promptProfiles.length === 0) {
+      return [{ label: 'No profiles — configure in Settings', action: () => {} }];
+    }
+    return promptProfiles.map((p) => ({
+      label: `${p.is_default ? '● ' : ''}${p.name}`,
+      action: () => handleSendToAi(p.id),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptProfiles, recordingId]);
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const durationDisplay = duration > 0 ? formatTimestamp(duration) : '--:--';
@@ -166,12 +180,14 @@ export default function AudioPlayer({ audioPath, recordingId, onStatusChange }: 
           >
             Transcribe
           </button>
-          <button
-            onClick={handleSendToAi}
-            className="rounded-card border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-3"
-          >
-            Send to AI
-          </button>
+          <Dropdown
+            trigger={
+              <button className="rounded-card border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-3">
+                Send to AI &#9662;
+              </button>
+            }
+            items={aiProfileItems}
+          />
           <Dropdown
             trigger={
               <button className="rounded-card border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-3">

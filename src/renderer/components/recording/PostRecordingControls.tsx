@@ -1,7 +1,10 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useSessionStore } from '../../stores/session.store';
 import { useRecordingStore } from '../../stores/recording.store';
+import { useSettingsStore } from '../../stores/settings.store';
 import { formatTimestamp } from '../../lib/formatters';
+import Dropdown from '../shared/Dropdown';
+import type { DropdownItem } from '../shared/Dropdown';
 
 export default function PostRecordingControls() {
   const audioPath = useSessionStore((s) => s.lastRecordingAudioPath);
@@ -99,17 +102,30 @@ export default function PostRecordingControls() {
     }
   };
 
-  const handleSendToAi = async () => {
+  const handleSendToAi = async (profileId?: number) => {
     if (!recordingId) return;
     setTranscribeStatus('Generating summary...');
     try {
-      await window.electronAPI.invoke('summary:generate', { recordingId });
+      await window.electronAPI.invoke('summary:generate', { recordingId, profileId });
       setTranscribeStatus('Summary complete!');
       fetchSummary(recordingId);
     } catch (err: any) {
       setTranscribeStatus(`Error: ${err?.message || 'Failed'}`);
     }
   };
+
+  const promptProfiles = useSettingsStore((s) => s.promptProfiles);
+
+  const aiProfileItems = useMemo<DropdownItem[]>(() => {
+    if (promptProfiles.length === 0) {
+      return [{ label: 'No profiles — configure in Settings', action: () => {} }];
+    }
+    return promptProfiles.map((p) => ({
+      label: `${p.is_default ? '● ' : ''}${p.name}`,
+      action: () => handleSendToAi(p.id),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptProfiles, recordingId]);
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -191,13 +207,17 @@ export default function PostRecordingControls() {
         >
           Transcribe
         </button>
-        <button
-          onClick={handleSendToAi}
-          disabled={!recordingId}
-          className="rounded-card border border-border bg-surface-2 px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-surface-3 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Send to AI
-        </button>
+        <Dropdown
+          trigger={
+            <button
+              disabled={!recordingId}
+              className="rounded-card border border-border bg-surface-2 px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-surface-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Send to AI &#9662;
+            </button>
+          }
+          items={aiProfileItems}
+        />
       </div>
 
       {/* Status message */}
