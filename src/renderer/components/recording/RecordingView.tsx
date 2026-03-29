@@ -39,10 +39,10 @@ export default function RecordingView() {
 
   // Listen for recording status changes from main process
   useEffect(() => {
+    if (!window.electronAPI?.on) return;
     const cleanup = window.electronAPI.on('recording:status-changed', (data) => {
       const { recordingId, status } = data;
       console.log(`[RecordingView] Status changed: recording=${recordingId} status=${status}`);
-      // Use getState() to avoid stale closure issues
       const store = useRecordingStore.getState();
       if (status === 'complete' || status === 'summarizing') {
         store.fetchTranscript(recordingId);

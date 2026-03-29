@@ -154,6 +154,7 @@ const createWindow = (services: ServiceContainer) => {
     height: 800,
     minWidth: 900,
     minHeight: 600,
+    icon: path.join(app.getAppPath(), 'resources', 'icon.png'),
     backgroundColor: '#0f1117',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
