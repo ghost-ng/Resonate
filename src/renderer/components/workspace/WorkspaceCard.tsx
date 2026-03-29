@@ -155,7 +155,31 @@ export default function WorkspaceCard({
             draggable
             onDragStart={(e) => {
               e.dataTransfer.effectAllowed = 'move';
-              if (cardRef.current) onDragStart(index, cardRef.current);
+              // Use the entire card as the drag ghost image
+              if (cardRef.current) {
+                const rect = cardRef.current.getBoundingClientRect();
+                // Create a semi-transparent clone as the drag image
+                const ghost = cardRef.current.cloneNode(true) as HTMLElement;
+                ghost.style.width = `${rect.width}px`;
+                ghost.style.opacity = '0.7';
+                ghost.style.position = 'absolute';
+                ghost.style.top = '-9999px';
+                ghost.style.left = '-9999px';
+                ghost.style.border = '2px solid #5b8def';
+                ghost.style.borderRadius = '6px';
+                ghost.style.boxShadow = '0 8px 32px rgba(91,141,239,0.3)';
+                ghost.style.pointerEvents = 'none';
+                document.body.appendChild(ghost);
+                // Offset so cursor is near the grip handle position
+                const offsetX = e.clientX - rect.left;
+                const offsetY = e.clientY - rect.top;
+                e.dataTransfer.setDragImage(ghost, offsetX, offsetY);
+                // Clean up the ghost after drag starts
+                requestAnimationFrame(() => {
+                  setTimeout(() => document.body.removeChild(ghost), 0);
+                });
+                onDragStart(index, cardRef.current);
+              }
             }}
             onDragEnd={onDragEnd}
             className="cursor-grab active:cursor-grabbing p-1 text-text-muted/40 hover:text-text-muted transition-colors"
