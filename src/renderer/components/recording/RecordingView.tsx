@@ -1,3 +1,4 @@
+import { useEffect, useCallback } from 'react';
 import { useRecordingStore } from '../../stores/recording.store';
 import { useNotebookStore } from '../../stores/notebook.store';
 import { useSessionStore } from '../../stores/session.store';
@@ -18,9 +19,47 @@ export default function RecordingView() {
   const transcripts = useRecordingStore((s) => s.transcripts);
   const summaries = useRecordingStore((s) => s.summaries);
   const recordingPhase = useSessionStore((s) => s.recordingPhase);
+  const fetchTranscript = useRecordingStore((s) => s.fetchTranscript);
+  const fetchSummary = useRecordingStore((s) => s.fetchSummary);
+  const fetchRecordings = useRecordingStore((s) => s.fetchRecordings);
   const startRecording = useSessionStore((s) => s.startRecording);
   const selectedNotebookId = useNotebookStore((s) => s.selectedNotebookId);
   const notebooks = useNotebookStore((s) => s.notebooks);
+
+  // Fetch transcript/summary when a tab is opened
+  useEffect(() => {
+    if (activeTabId && !transcripts[activeTabId]) {
+      fetchTranscript(activeTabId);
+    }
+    if (activeTabId && !summaries[activeTabId]) {
+      fetchSummary(activeTabId);
+    }
+  }, [activeTabId, transcripts, summaries, fetchTranscript, fetchSummary]);
+
+  // Listen for recording status changes from main process
+  useEffect(() => {
+    const cleanup = window.electronAPI.on('recording:status-changed', (data) => {
+      const { recordingId, status } = data;
+      console.log(`[RecordingView] Status changed: recording=${recordingId} status=${status}`);
+      if (status === 'complete' || status === 'summarizing') {
+        fetchTranscript(recordingId);
+        fetchRecordings();
+      }
+      if (status === 'complete') {
+        fetchSummary(recordingId);
+      }
+    });
+    return cleanup;
+  }, [fetchTranscript, fetchSummary, fetchRecordings]);
+
+  // Callback for AudioPlayer when transcription/summarization completes
+  const handleStatusChange = useCallback((newStatus: string) => {
+    if (activeTabId) {
+      if (newStatus === 'transcribed') fetchTranscript(activeTabId);
+      if (newStatus === 'summarized') fetchSummary(activeTabId);
+      fetchRecordings();
+    }
+  }, [activeTabId, fetchTranscript, fetchSummary, fetchRecordings]);
 
   const selectedNotebook = selectedNotebookId !== ALL_RECORDINGS_ID
     ? notebooks.find((n) => n.id === selectedNotebookId)
@@ -101,7 +140,7 @@ export default function RecordingView() {
 
         {/* Audio player for saved recordings with audio files */}
         {recordingPhase === 'idle' && recording.audio_file_path && (
-          <AudioPlayer audioPath={recording.audio_file_path} recordingId={recording.id} />
+          <AudioPlayer audioPath={recording.audio_file_path} recordingId={recording.id} onStatusChange={handleStatusChange} />
         )}
 
         {transcript && <TranscriptCard transcript={transcript} />}
