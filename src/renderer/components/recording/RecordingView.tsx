@@ -101,8 +101,13 @@ export default function RecordingView() {
     );
   }
 
+  const lastRecordingId = useSessionStore((s) => s.lastRecordingId);
+
   // Recording in progress (no tab yet — recording was started from empty state)
   if (!activeTabId && recordingPhase !== 'idle') {
+    const postTranscript = lastRecordingId ? transcripts[lastRecordingId] : null;
+    const postSummary = lastRecordingId ? summaries[lastRecordingId] : null;
+
     return (
       <div className="flex h-full flex-col overflow-y-auto">
         <div className="flex flex-col gap-4 p-4">
@@ -111,6 +116,8 @@ export default function RecordingView() {
           </div>
           {recordingPhase === 'recording' && <WaveformVisualizer />}
           {recordingPhase === 'post-recording' && <PostRecordingControls />}
+          {postTranscript && <TranscriptCard transcript={postTranscript} />}
+          {postSummary && <SummaryCard summary={postSummary} />}
         </div>
       </div>
     );
