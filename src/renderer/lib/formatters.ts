@@ -31,9 +31,7 @@ export function formatTimestamp(ms: number): string {
 
 /** Format ISO date string as relative date */
 export function formatRelativeDate(isoDate: string): string {
-  // SQLite CURRENT_TIMESTAMP is UTC — ensure we parse it as UTC
-  const dateStr = isoDate.endsWith('Z') || isoDate.includes('+') ? isoDate : isoDate + 'Z';
-  const date = new Date(dateStr);
+  const date = parseDate(isoDate);
   const now = new Date();
 
   // Compare calendar dates in local timezone to avoid UTC offset issues
@@ -48,10 +46,15 @@ export function formatRelativeDate(isoDate: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-/** Format ISO date as a display date string */
+/** Parse a date string, treating SQLite timestamps as UTC */
+function parseDate(isoDate: string): Date {
+  const s = isoDate.endsWith('Z') || isoDate.includes('+') || isoDate.includes('T') ? isoDate : isoDate + 'Z';
+  return new Date(s);
+}
+
+/** Format ISO date as a display date string in local time */
 export function formatDate(isoDate: string): string {
-  const date = new Date(isoDate);
-  return date.toLocaleDateString('en-US', {
+  return parseDate(isoDate).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
