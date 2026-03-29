@@ -31,12 +31,17 @@ export function formatTimestamp(ms: number): string {
 
 /** Format ISO date string as relative date */
 export function formatRelativeDate(isoDate: string): string {
-  const date = new Date(isoDate);
+  // SQLite CURRENT_TIMESTAMP is UTC — ensure we parse it as UTC
+  const dateStr = isoDate.endsWith('Z') || isoDate.includes('+') ? isoDate : isoDate + 'Z';
+  const date = new Date(dateStr);
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return 'Today';
+  // Compare calendar dates in local timezone to avoid UTC offset issues
+  const dateLocal = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const nowLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((nowLocal.getTime() - dateLocal.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
   if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
