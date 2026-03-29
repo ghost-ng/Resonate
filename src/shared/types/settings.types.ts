@@ -11,6 +11,9 @@ export const SETTINGS_KEYS = {
   AI_MODEL: 'ai_model',
   AI_TEMPERATURE: 'ai_temperature',
   AI_MAX_TOKENS: 'ai_max_tokens',
+  AI_PROVIDER_TYPE: 'ai_provider_type',
+  AI_PROVIDERS: 'ai_providers',
+  AI_ACTIVE_PROVIDER_ID: 'ai_active_provider_id',
   AUTO_DETECT_ENABLED: 'auto_detect_enabled',
   AUTO_DETECT_APPS: 'auto_detect_apps',
   AUTO_DETECT_COOLDOWN_MS: 'auto_detect_cooldown_ms',
@@ -19,6 +22,52 @@ export const SETTINGS_KEYS = {
   AUDIO_OUTPUT_DEVICE: 'audio_output_device',
   STORAGE_PATH: 'storage_path',
 } as const;
+
+export type AiProviderType = 'openai' | 'anthropic' | 'custom';
+
+export interface AiProvider {
+  id: string;
+  name: string;
+  type: AiProviderType;
+  endpoint: string;
+  apiKey: string;       // stored encrypted
+  model: string;
+  temperature: number;
+  maxTokens: number;
+}
+
+export const DEFAULT_AI_PROVIDERS: AiProvider[] = [
+  {
+    id: 'openai-default',
+    name: 'OpenAI',
+    type: 'openai',
+    endpoint: 'https://api.openai.com/v1',
+    apiKey: '',
+    model: 'gpt-4o',
+    temperature: 0.3,
+    maxTokens: 4096,
+  },
+  {
+    id: 'anthropic-default',
+    name: 'Anthropic',
+    type: 'anthropic',
+    endpoint: 'https://api.anthropic.com/v1',
+    apiKey: '',
+    model: 'claude-sonnet-4-20250514',
+    temperature: 0.3,
+    maxTokens: 4096,
+  },
+  {
+    id: 'custom-default',
+    name: 'Custom OpenAI-compatible',
+    type: 'custom',
+    endpoint: '',
+    apiKey: '',
+    model: '',
+    temperature: 0.7,
+    maxTokens: 4096,
+  },
+];
 
 export interface AutoDetectApp {
   name: string;

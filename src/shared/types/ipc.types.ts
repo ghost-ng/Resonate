@@ -41,6 +41,11 @@ export interface IpcChannelMap {
   'settings:getAll': { args: void; result: Record<string, string> };
 
   'audio:get-devices': { args: void; result: { inputs: AudioDeviceInfo[]; outputs: AudioDeviceInfo[] } };
+
+  'ai:list-models': {
+    args: { endpoint: string; apiKey: string; type: 'openai' | 'anthropic' };
+    result: { models: string[]; error?: string };
+  };
 }
 
 export interface IpcEventMap {

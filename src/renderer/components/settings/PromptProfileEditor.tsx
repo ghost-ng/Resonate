@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSettingsStore } from '../../stores/settings.store';
 import type { PromptProfile } from '../../../shared/types/database.types';
+import { DEFAULT_PROMPT_PROFILES } from '../../../shared/constants';
 
 const VARIABLES = [
   '{{transcript}}',
@@ -20,7 +21,7 @@ interface EditState {
 
 export default function PromptProfileEditor() {
   const profiles = useSettingsStore((s) => s.promptProfiles);
-  const setSetting = useSettingsStore((s) => s.setSetting);
+  const fetchPromptProfiles = useSettingsStore((s) => s.fetchPromptProfiles);
   const [editing, setEditing] = useState<EditState | null>(null);
   const [activeTextarea, setActiveTextarea] = useState<'system' | 'user' | null>(null);
 
@@ -44,19 +45,52 @@ export default function PromptProfileEditor() {
     });
   };
 
-  const handleSave = () => {
+  const handleLoadTemplate = (templateName: string) => {
+    const template = DEFAULT_PROMPT_PROFILES.find((t) => t.name === templateName);
+    if (template && editing) {
+      setEditing({
+        ...editing,
+        name: editing.name || template.name,
+        system_prompt: template.system_prompt,
+        user_prompt_template: template.user_prompt_template,
+      });
+    }
+  };
+
+  const handleSave = async () => {
     if (!editing) return;
-    // In a real implementation this would call an IPC method to persist.
-    // For now we update the store optimistically via a setting key.
-    setSetting(
-      `prompt_profile_draft_${editing.id ?? 'new'}`,
-      JSON.stringify(editing),
-    );
+
+    try {
+      if (editing.id !== null) {
+        await window.electronAPI.invoke('prompt-profile:update', {
+          id: editing.id,
+          name: editing.name,
+          system_prompt: editing.system_prompt,
+          user_prompt_template: editing.user_prompt_template,
+          is_default: editing.is_default,
+        });
+      } else {
+        await window.electronAPI.invoke('prompt-profile:create', {
+          name: editing.name,
+          system_prompt: editing.system_prompt,
+          user_prompt_template: editing.user_prompt_template,
+          is_default: editing.is_default,
+        });
+      }
+      await fetchPromptProfiles();
+    } catch {
+      // Error handling — profile list will remain as-is
+    }
     setEditing(null);
   };
 
-  const handleDelete = (id: number) => {
-    setSetting(`prompt_profile_delete_${id}`, 'true');
+  const handleDelete = async (id: number) => {
+    try {
+      await window.electronAPI.invoke('prompt-profile:delete', { id });
+      await fetchPromptProfiles();
+    } catch {
+      // Error handling
+    }
   };
 
   const insertVariable = (variable: string) => {
@@ -116,6 +150,22 @@ export default function PromptProfileEditor() {
         </div>
       ) : (
         <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4">
+          {/* Pre-built template selector */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-text-muted">Start from template</label>
+            <div className="flex flex-wrap gap-1">
+              {DEFAULT_PROMPT_PROFILES.map((t) => (
+                <button
+                  key={t.name}
+                  onClick={() => handleLoadTemplate(t.name)}
+                  className="rounded-card border border-border bg-surface-2 px-3 py-1 text-xs text-text-muted transition-colors hover:border-accent hover:text-text"
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1">
             <label className="text-sm text-text-muted">Profile Name</label>
             <input
