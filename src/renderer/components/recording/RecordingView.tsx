@@ -150,7 +150,7 @@ export default function RecordingView() {
 
         {/* Audio player for saved recordings with audio files */}
         {recordingPhase === 'idle' && recording.audio_file_path && (
-          <AudioPlayer audioPath={recording.audio_file_path} recordingId={recording.id} onStatusChange={handleStatusChange} />
+          <AudioPlayer audioPath={recording.audio_file_path} recordingId={recording.id} durationSeconds={recording.duration_seconds} onStatusChange={handleStatusChange} />
         )}
 
         <CardWorkspace recordingId={recording.id} transcript={transcript ?? null} summary={summary ?? null} />

@@ -10,17 +10,20 @@ import type { DropdownItem } from '../shared/Dropdown';
 interface Props {
   audioPath: string;
   recordingId: number;
+  durationSeconds?: number; // from DB — used as initial/fallback duration
   onStatusChange?: (message: string) => void;
 }
 
-export default function AudioPlayer({ audioPath, recordingId, onStatusChange }: Props) {
+export default function AudioPlayer({ audioPath, recordingId, durationSeconds, onStatusChange }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  // Initialize duration from DB if available
+  const [duration, setDuration] = useState(durationSeconds ? durationSeconds * 1000 : 0);
 
   const audioSrc = `audio-file:///${audioPath.replace(/\\/g, '/')}`;
 
+  // Try to get more accurate duration from the audio element
   const tryReadDuration = useCallback(() => {
     if (audioRef.current && isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
       setDuration(audioRef.current.duration * 1000);
@@ -30,9 +33,12 @@ export default function AudioPlayer({ audioPath, recordingId, onStatusChange }: 
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {
       setCurrentTime(audioRef.current.currentTime * 1000);
-      if (duration === 0) tryReadDuration();
+      // If we still don't have duration from the element, keep trying
+      if (audioRef.current.duration && isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
+        setDuration(audioRef.current.duration * 1000);
+      }
     }
-  }, [duration, tryReadDuration]);
+  }, []);
 
   const handleEnded = useCallback(() => {
     setIsPlaying(false);
@@ -47,12 +53,19 @@ export default function AudioPlayer({ audioPath, recordingId, onStatusChange }: 
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', tryReadDuration);
     audio.addEventListener('durationchange', tryReadDuration);
+    audio.addEventListener('canplaythrough', tryReadDuration);
     audio.addEventListener('ended', handleEnded);
+
+    // Also try reading duration after a short delay (some browsers need time)
+    const timer = setTimeout(tryReadDuration, 500);
+
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', tryReadDuration);
       audio.removeEventListener('durationchange', tryReadDuration);
+      audio.removeEventListener('canplaythrough', tryReadDuration);
       audio.removeEventListener('ended', handleEnded);
+      clearTimeout(timer);
     };
   }, [handleTimeUpdate, tryReadDuration, handleEnded]);
 
