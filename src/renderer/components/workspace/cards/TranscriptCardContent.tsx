@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { TranscriptWithSegments } from '../../../../shared/types/ipc.types';
 import type { TranscriptHighlight, TranscriptSegmentRow } from '../../../../shared/types/database.types';
 import { useWorkspaceStore } from '../../../stores/workspace.store';
@@ -8,6 +8,7 @@ interface Props {
   transcript: TranscriptWithSegments | null;
   highlights: TranscriptHighlight[];
   recordingId: number;
+  onAddTask: (text: string) => Promise<void>;
 }
 
 interface ContextMenuState {
@@ -15,50 +16,54 @@ interface ContextMenuState {
   x: number;
   y: number;
   segment: TranscriptSegmentRow | null;
+  selectedText: string;
 }
 
-export default function TranscriptCardContent({ transcript, highlights, recordingId }: Props) {
+export default function TranscriptCardContent({ transcript, highlights, recordingId, onAddTask }: Props) {
   const addHighlight = useWorkspaceStore((s) => s.addHighlight);
-  const addTask = useWorkspaceStore((s) => s.addTask);
-  const cards = useWorkspaceStore((s) => s.cards[recordingId] ?? []);
 
   const [menu, setMenu] = useState<ContextMenuState>({
-    visible: false,
-    x: 0,
-    y: 0,
-    segment: null,
+    visible: false, x: 0, y: 0, segment: null, selectedText: '',
   });
 
   const handleContextMenu = useCallback((e: React.MouseEvent, segment: TranscriptSegmentRow) => {
     e.preventDefault();
-    setMenu({ visible: true, x: e.clientX, y: e.clientY, segment });
+    e.stopPropagation();
+    const selected = window.getSelection()?.toString().trim() ?? '';
+    setMenu({ visible: true, x: e.clientX, y: e.clientY, segment, selectedText: selected });
   }, []);
 
   const closeMenu = useCallback(() => {
-    setMenu((prev) => ({ ...prev, visible: false, segment: null }));
+    setMenu((m) => m.visible ? { visible: false, x: 0, y: 0, segment: null, selectedText: '' } : m);
   }, []);
 
-  const handleCreateTask = useCallback(async () => {
+  // Close on click outside or Escape
+  useEffect(() => {
+    if (!menu.visible) return;
+    const handleClick = () => closeMenu();
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeMenu(); };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [menu.visible, closeMenu]);
+
+  const handleCreateTask = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     if (!menu.segment) return;
-    const customCards = cards.filter((c) => c.card_type === 'custom_task');
-    let targetCardId: number;
-    if (customCards.length > 0) {
-      targetCardId = customCards[0].id;
-    } else {
-      // Create a custom card first
-      await useWorkspaceStore.getState().addCustomCard(recordingId, 'Tasks');
-      const updatedCards = useWorkspaceStore.getState().cards[recordingId] ?? [];
-      const newCustom = updatedCards.find((c) => c.card_type === 'custom_task');
-      if (!newCustom) { closeMenu(); return; }
-      targetCardId = newCustom.id;
-    }
-    await addTask(targetCardId, menu.segment.text, menu.segment.id);
-    // Also highlight the source segment
+    const taskText = menu.selectedText || menu.segment.text;
+    await onAddTask(taskText);
+    // Highlight the source segment
     await addHighlight(recordingId, menu.segment.id, 'task_source');
     closeMenu();
-  }, [menu.segment, cards, recordingId, addTask, addHighlight, closeMenu]);
+  }, [menu.segment, menu.selectedText, onAddTask, addHighlight, recordingId, closeMenu]);
 
-  const handleMarkImportant = useCallback(async () => {
+  const handleMarkImportant = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     if (!menu.segment) return;
     await addHighlight(recordingId, menu.segment.id, 'important');
     closeMenu();
@@ -74,7 +79,7 @@ export default function TranscriptCardContent({ transcript, highlights, recordin
   }
 
   return (
-    <div className="relative" onClick={menu.visible ? closeMenu : undefined}>
+    <div className="relative select-text">
       <div className="divide-y divide-border/50">
         {transcript.segments.map((seg) => (
           <TranscriptSegment
@@ -88,20 +93,22 @@ export default function TranscriptCardContent({ transcript, highlights, recordin
 
       {menu.visible && (
         <div
-          className="fixed z-50 rounded-card border border-border bg-surface shadow-lg py-1"
+          className="fixed z-[100] rounded-card border border-border bg-surface shadow-xl py-1 min-w-[180px]"
           style={{ left: menu.x, top: menu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           <button
-            onClick={handleCreateTask}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-text hover:bg-surface-2 text-left"
+            onMouseDown={handleCreateTask}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text hover:bg-surface-2 text-left"
           >
-            Create Task
+            <span className="text-accent">+</span>
+            {menu.selectedText ? 'Add Selection to Tasks' : 'Create Task'}
           </button>
           <button
-            onClick={handleMarkImportant}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-text hover:bg-surface-2 text-left"
+            onMouseDown={handleMarkImportant}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text hover:bg-surface-2 text-left"
           >
-            Mark as Important
+            <span className="text-yellow-400">★</span> Mark as Important
           </button>
         </div>
       )}
