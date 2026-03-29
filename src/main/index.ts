@@ -1,4 +1,4 @@
-import { app, BrowserWindow, protocol, net } from 'electron';
+import { app, BrowserWindow, protocol, net, ipcMain } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
@@ -53,6 +53,7 @@ if (started) {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let debugModeEnabled = false;
 
 function bootstrap(): ServiceContainer {
   const db = getDatabase();
@@ -152,10 +153,12 @@ const createWindow = (services: ServiceContainer) => {
     );
   }
 
-  // Open DevTools in development
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.webContents.openDevTools();
-  }
+  // Block F12/Ctrl+Shift+I unless debug mode is enabled via IPC
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
+      if (!debugModeEnabled) event.preventDefault();
+    }
+  });
 
   // System tray
   const trayService = new TrayService(mainWindow);
@@ -190,6 +193,17 @@ app.on('ready', () => {
     filePath = filePath.replace(/\//g, path.sep);
     console.log('[Protocol] Serving audio file:', filePath);
     return net.fetch(pathToFileURL(filePath).href);
+  });
+
+  // Debug mode toggle
+  ipcMain.handle('app:toggle-debug', () => {
+    debugModeEnabled = !debugModeEnabled;
+    if (debugModeEnabled) {
+      mainWindow?.webContents.openDevTools();
+    } else {
+      mainWindow?.webContents.closeDevTools();
+    }
+    return debugModeEnabled;
   });
 
   const services = bootstrap();

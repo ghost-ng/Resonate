@@ -15,7 +15,7 @@ export interface DefaultPromptProfileSeed {
   is_default: boolean;
 }
 
-export const ANTI_HALLUCINATION = 'IMPORTANT: Use ONLY information from the transcript. Do NOT invent, assume, or add any details not explicitly stated. If the transcript is too short or unclear, say so honestly.';
+export const ANTI_HALLUCINATION = 'IMPORTANT: Use ONLY information from the transcript. Do NOT invent, assume, or add any details not explicitly stated. If the transcript is too short or unclear, say so honestly. Return your response as plain markdown (NOT inside a code block). Use headings, bullet points, and bold text for structure.';
 
 export const DEFAULT_PROMPT_PROFILES: DefaultPromptProfileSeed[] = [
   {

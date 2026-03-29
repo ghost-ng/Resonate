@@ -45,6 +45,7 @@ export interface IpcChannelMap {
   'app:reset-settings': { args: void; result: void };
   'app:erase-all-data': { args: void; result: void };
   'app:get-storage-info': { args: void; result: { dbSizeBytes: number; audioSizeBytes: number; recordingCount: number; audioFileCount: number } };
+  'app:toggle-debug': { args: void; result: boolean };
 
   'ai:list-models': {
     args: { endpoint: string; apiKey: string; type: 'openai' | 'anthropic' };

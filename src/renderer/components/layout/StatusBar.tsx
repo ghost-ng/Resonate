@@ -1,7 +1,16 @@
+import { useState } from 'react';
 import { useSettingsStore } from '../../stores/settings.store';
 
 export default function StatusBar() {
   const settings = useSettingsStore((s) => s.settings);
+  const [debugActive, setDebugActive] = useState(false);
+
+  const toggleDebug = async () => {
+    try {
+      const result = await window.electronAPI.invoke('app:toggle-debug', undefined);
+      setDebugActive(result);
+    } catch { /* ignore */ }
+  };
 
   return (
     <div className="flex h-6 items-center justify-between border-t border-border bg-surface px-3 text-xs text-text-muted">
@@ -14,7 +23,13 @@ export default function StatusBar() {
         <span>AI: {settings.ai_model ?? 'gpt-4o'}</span>
       </div>
       <div className="flex items-center gap-3">
-        <span>{settings.storage_path ?? '~/.yourecord'}</span>
+        <button
+          onClick={toggleDebug}
+          className={`rounded px-1.5 py-0.5 transition-colors ${debugActive ? 'bg-accent/20 text-accent' : 'hover:bg-surface-2 hover:text-text'}`}
+          title={debugActive ? 'Debug mode ON — click to disable' : 'Enable debug mode'}
+        >
+          {debugActive ? '🐛 Debug ON' : '🐛'}
+        </button>
       </div>
     </div>
   );
