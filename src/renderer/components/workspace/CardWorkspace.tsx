@@ -138,88 +138,53 @@ export default function CardWorkspace({ recordingId, transcript, summary }: Prop
     }
   };
 
-  const [dropZoneActive, setDropZoneActive] = useState(false);
-
-  const handleDropToOwnRow = useCallback(() => {
-    if (dragIndex === null) return;
-    // Move the dragged card to the end and make it full width
-    setCards((prev) => {
-      const updated = [...prev];
-      const dragged = updated.splice(dragIndex, 1)[0];
-      dragged.grid_w = 2; // full width = own row
-      updated.push(dragged);
-      return updated;
-    });
-    setDragIndex(null);
-    setDropZoneActive(false);
-
-    // Persist after a tick
-    setTimeout(() => {
-      const currentCards = useWorkspaceStore.getState().cards[recordingId] ?? [];
-      // The last card should now be full width
-      const reordered = [...cards];
-      if (dragIndex !== null && dragIndex < reordered.length) {
-        const dragged = reordered.splice(dragIndex, 1)[0];
-        reordered.push(dragged);
-        reordered.forEach((card, i) => {
-          const isLast = i === reordered.length - 1;
-          updateCard(card.id, {
-            sort_order: i,
-            grid_w: isLast ? 2 : card.grid_w,
-          }, recordingId);
-        });
+  // Build rows: full-width cards get their own row, half-width cards pair up
+  const rows: CardType[][] = [];
+  let currentPair: CardType[] = [];
+  for (const card of cards) {
+    if (card.grid_w >= 2) {
+      // Flush any pending pair first
+      if (currentPair.length > 0) {
+        rows.push([...currentPair]);
+        currentPair = [];
       }
-    }, 50);
-  }, [dragIndex, cards, updateCard, recordingId]);
+      rows.push([card]); // own row
+    } else {
+      currentPair.push(card);
+      if (currentPair.length === 2) {
+        rows.push([...currentPair]);
+        currentPair = [];
+      }
+    }
+  }
+  if (currentPair.length > 0) rows.push([...currentPair]);
 
   return (
     <div>
-      <div className="flex flex-wrap gap-[10px]">
-        {cards.map((card, index) => (
-          <WorkspaceCard
-            key={card.id}
-            card={card}
-            recordingId={recordingId}
-            index={index}
-            isDragOver={overIndex === index}
-            onDragStart={handleDragStart}
-            onDragEnter={handleDragEnter}
-            onDragEnd={handleDragEnd}
-            onWidthToggle={() => handleWidthToggle(card)}
-            style={{
-              flex: card.grid_w >= 2 ? '0 0 100%' : '0 0 calc(50% - 5px)',
-              minHeight: '120px',
-            }}
-          >
-            {renderCardContent(card)}
-          </WorkspaceCard>
-        ))}
-
-        {/* Drop zone for placing card on its own row */}
-        {dragIndex !== null && (
-          <div
-            className={`flex w-full items-center justify-center rounded-card border-2 border-dashed p-4 transition-all ${
-              dropZoneActive
-                ? 'border-accent bg-accent/10 text-accent'
-                : 'border-border/50 text-text-muted/40'
-            }`}
-            style={{ flex: '0 0 100%', minHeight: '60px' }}
-            onDragEnter={(e) => {
-              e.preventDefault();
-              setDropZoneActive(true);
-            }}
-            onDragLeave={() => setDropZoneActive(false)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              handleDropToOwnRow();
-            }}
-          >
-            <span className="text-sm font-medium">
-              {dropZoneActive ? '↓ Drop to place on its own row' : 'Drag here for own row'}
-            </span>
+      <div className="flex flex-col gap-[10px]">
+        {rows.map((row, rowIdx) => (
+          <div key={rowIdx} className="grid gap-[10px]" style={{ gridTemplateColumns: row.length === 1 && row[0].grid_w >= 2 ? '1fr' : 'repeat(2, 1fr)' }}>
+            {row.map((card) => {
+              const cardIndex = cards.indexOf(card);
+              return (
+                <WorkspaceCard
+                  key={card.id}
+                  card={card}
+                  recordingId={recordingId}
+                  index={cardIndex}
+                  isDragOver={overIndex === cardIndex}
+                  onDragStart={handleDragStart}
+                  onDragEnter={handleDragEnter}
+                  onDragEnd={handleDragEnd}
+                  onWidthToggle={() => handleWidthToggle(card)}
+                  style={row.length === 1 && row[0].grid_w >= 2 ? { gridColumn: '1 / -1' } : undefined}
+                >
+                  {renderCardContent(card)}
+                </WorkspaceCard>
+              );
+            })}
           </div>
-        )}
+        ))}
       </div>
 
       <div className="mt-3 flex justify-end">
