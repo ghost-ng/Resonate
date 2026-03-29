@@ -101,6 +101,18 @@ export default function AppShell() {
     if (!ctxMenu.target) return [];
     const { type, id } = ctxMenu.target;
 
+    if (type === 'all-recordings') {
+      return [
+        {
+          label: 'Delete All Recordings',
+          danger: true,
+          action: () => {
+            setDeleteTarget({ type: 'all-recordings', id: 0 });
+          },
+        },
+      ];
+    }
+
     if (type === 'notebook') {
       const nb = useNotebookStore.getState().notebooks.find((n) => n.id === id);
       return [
@@ -167,9 +179,17 @@ export default function AppShell() {
     return [];
   }, [ctxMenu.target, recordings, notebooks, selectedNotebookId, moveToNotebook, fetchRecordings, openTab]);
 
+  const [renameError, setRenameError] = useState('');
+
   const handleConfirmRename = useCallback(() => {
     if (!renameTarget || !renameValue.trim()) return;
     if (renameTarget.type === 'notebook') {
+      const existing = useNotebookStore.getState().notebooks;
+      if (existing.some((nb) => nb.id !== renameTarget.id && nb.name.toLowerCase() === renameValue.trim().toLowerCase())) {
+        setRenameError('A notebook with this name already exists');
+        return;
+      }
+      setRenameError('');
       updateNotebook(renameTarget.id, { name: renameValue.trim() });
     } else if (renameTarget.type === 'recording') {
       updateRecording(renameTarget.id, { title: renameValue.trim() });
@@ -177,24 +197,40 @@ export default function AppShell() {
     setRenameTarget(null);
   }, [renameTarget, renameValue, updateNotebook, updateRecording]);
 
+  const [notebookError, setNotebookError] = useState('');
+
   const handleCreateNotebook = useCallback(() => {
-    if (!newNotebookName.trim()) return;
-    createNotebook(newNotebookName.trim(), '📁');
+    const name = newNotebookName.trim();
+    if (!name) return;
+    const existing = useNotebookStore.getState().notebooks;
+    if (existing.some((nb) => nb.name.toLowerCase() === name.toLowerCase())) {
+      setNotebookError('A notebook with this name already exists');
+      return;
+    }
+    setNotebookError('');
+    createNotebook(name, '📁');
     setShowNewNotebook(false);
   }, [newNotebookName, createNotebook]);
 
   // Delete confirmation modal
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: number } | null>(null);
 
-  const handleConfirmDelete = useCallback(() => {
+  const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
     if (deleteTarget.type === 'notebook') {
       deleteNotebook(deleteTarget.id);
     } else if (deleteTarget.type === 'recording') {
       deleteRecording(deleteTarget.id);
+    } else if (deleteTarget.type === 'all-recordings') {
+      // Delete all recordings
+      const allRecs = useRecordingStore.getState().recordings;
+      for (const rec of allRecs) {
+        await deleteRecording(rec.id);
+      }
+      fetchRecordings();
     }
     setDeleteTarget(null);
-  }, [deleteTarget, deleteNotebook, deleteRecording]);
+  }, [deleteTarget, deleteNotebook, deleteRecording, fetchRecordings]);
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -220,7 +256,7 @@ export default function AppShell() {
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={deleteTarget !== null}
-        title={`Delete ${deleteTarget?.type === 'notebook' ? 'Notebook' : 'Recording'}?`}
+        title={deleteTarget?.type === 'all-recordings' ? 'Delete All Recordings?' : `Delete ${deleteTarget?.type === 'notebook' ? 'Notebook' : 'Recording'}?`}
         onClose={() => setDeleteTarget(null)}
         footer={
           <>
@@ -240,8 +276,9 @@ export default function AppShell() {
         }
       >
         <p>
-          This action cannot be undone. Are you sure you want to delete this{' '}
-          {deleteTarget?.type}?
+          {deleteTarget?.type === 'all-recordings'
+            ? 'This will delete ALL recordings, transcripts, and audio files. This cannot be undone.'
+            : `This action cannot be undone. Are you sure you want to delete this ${deleteTarget?.type}?`}
         </p>
       </Modal>
 
@@ -276,6 +313,7 @@ export default function AppShell() {
           className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none focus:border-accent"
           placeholder="Enter new name..."
         />
+        {renameError && <p className="mt-2 text-xs text-danger">{renameError}</p>}
       </Modal>
 
       {/* New Notebook Modal */}
@@ -309,6 +347,7 @@ export default function AppShell() {
           className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none focus:border-accent"
           placeholder="Notebook name..."
         />
+        {notebookError && <p className="mt-2 text-xs text-danger">{notebookError}</p>}
       </Modal>
 
       {/* Drag overlay for recording items */}
