@@ -6,6 +6,7 @@ import AiEndpointConfig from './AiEndpointConfig';
 import PromptProfileEditor from './PromptProfileEditor';
 import AutoDetectSettings from './AutoDetectSettings';
 import AudioDeviceSettings from './AudioDeviceSettings';
+import PkiSettings from './PkiSettings';
 import StorageManagement from './StorageManagement';
 
 export default function SettingsPanel() {
@@ -54,6 +55,9 @@ export default function SettingsPanel() {
           </section>
           <section className="px-5 py-4">
             <AudioDeviceSettings />
+          </section>
+          <section className="px-5 py-4">
+            <PkiSettings />
           </section>
           <section className="px-5 py-4">
             <StorageManagement />

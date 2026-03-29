@@ -4,6 +4,7 @@ import * as path from 'path';
 import type { ServiceContainer } from '../index';
 import { getDatabase } from '../db/connection';
 import { DEFAULT_PROMPT_PROFILES } from '../../shared/constants';
+import { invalidatePkiAgent } from '../services/pki-fetch';
 
 export function registerSettingsHandlers(services: ServiceContainer): void {
   const { settings, audioCapture } = services;
@@ -14,6 +15,10 @@ export function registerSettingsHandlers(services: ServiceContainer): void {
 
   ipcMain.handle('settings:set', (_, args: { key: string; value: string }) => {
     settings.set(args.key, args.value);
+    // Invalidate cached PKI agent when any PKI setting changes
+    if (args.key.startsWith('pki_')) {
+      invalidatePkiAgent();
+    }
   });
 
   ipcMain.handle('settings:getAll', () => {

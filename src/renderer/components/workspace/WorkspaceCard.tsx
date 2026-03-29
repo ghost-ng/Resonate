@@ -132,19 +132,22 @@ export default function WorkspaceCard({
           <button
             onClick={onWidthToggle}
             className="p-1 text-text-muted/40 hover:text-text-muted transition-colors"
-            title={card.grid_w >= 2 ? 'Half width' : 'Full width'}
-            aria-label={card.grid_w >= 2 ? 'Half width' : 'Full width'}
+            title={card.grid_w >= 2 ? 'Shrink to half width' : 'Expand to full width'}
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               {card.grid_w >= 2 ? (
+                /* Inward arrows (shrink) */
                 <>
-                  <path d="M11 4l-3 4 3 4" />
-                  <path d="M5 4l3 4-3 4" />
+                  <path d="M1 8h4M11 8h4" />
+                  <path d="M3 5.5L5 8 3 10.5" />
+                  <path d="M13 5.5L11 8 13 10.5" />
                 </>
               ) : (
+                /* Outward arrows (expand) */
                 <>
-                  <path d="M4 4l3 4-3 4" />
-                  <path d="M12 4l-3 4 3 4" />
+                  <path d="M5 8H1M15 8h-4" />
+                  <path d="M3 5.5L1 8l2 2.5" />
+                  <path d="M13 5.5l2 2.5-2 2.5" />
                 </>
               )}
             </svg>

@@ -138,6 +138,40 @@ export default function CardWorkspace({ recordingId, transcript, summary }: Prop
     }
   };
 
+  const [dropZoneActive, setDropZoneActive] = useState(false);
+
+  const handleDropToOwnRow = useCallback(() => {
+    if (dragIndex === null) return;
+    // Move the dragged card to the end and make it full width
+    setCards((prev) => {
+      const updated = [...prev];
+      const dragged = updated.splice(dragIndex, 1)[0];
+      dragged.grid_w = 2; // full width = own row
+      updated.push(dragged);
+      return updated;
+    });
+    setDragIndex(null);
+    setDropZoneActive(false);
+
+    // Persist after a tick
+    setTimeout(() => {
+      const currentCards = useWorkspaceStore.getState().cards[recordingId] ?? [];
+      // The last card should now be full width
+      const reordered = [...cards];
+      if (dragIndex !== null && dragIndex < reordered.length) {
+        const dragged = reordered.splice(dragIndex, 1)[0];
+        reordered.push(dragged);
+        reordered.forEach((card, i) => {
+          const isLast = i === reordered.length - 1;
+          updateCard(card.id, {
+            sort_order: i,
+            grid_w: isLast ? 2 : card.grid_w,
+          }, recordingId);
+        });
+      }
+    }, 50);
+  }, [dragIndex, cards, updateCard, recordingId]);
+
   return (
     <div>
       <div className="flex flex-wrap gap-[10px]">
@@ -160,6 +194,32 @@ export default function CardWorkspace({ recordingId, transcript, summary }: Prop
             {renderCardContent(card)}
           </WorkspaceCard>
         ))}
+
+        {/* Drop zone for placing card on its own row */}
+        {dragIndex !== null && (
+          <div
+            className={`flex w-full items-center justify-center rounded-card border-2 border-dashed p-4 transition-all ${
+              dropZoneActive
+                ? 'border-accent bg-accent/10 text-accent'
+                : 'border-border/50 text-text-muted/40'
+            }`}
+            style={{ flex: '0 0 100%', minHeight: '60px' }}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              setDropZoneActive(true);
+            }}
+            onDragLeave={() => setDropZoneActive(false)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              handleDropToOwnRow();
+            }}
+          >
+            <span className="text-sm font-medium">
+              {dropZoneActive ? '↓ Drop to place on its own row' : 'Drag here for own row'}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex justify-end">
