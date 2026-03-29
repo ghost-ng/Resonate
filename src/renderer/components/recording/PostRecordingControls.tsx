@@ -24,10 +24,13 @@ export default function PostRecordingControls() {
     }
   }, [recordingId, keepRecordingSession, fetchRecordings, openTab]);
 
+  // Use the recording timer duration as initial fallback
+  const sessionDurationMs = useSessionStore((s) => s.durationMs);
+
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState(sessionDurationMs || 0);
 
   const tryReadDuration = useCallback(() => {
     if (audioRef.current && isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
@@ -38,14 +41,14 @@ export default function PostRecordingControls() {
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {
       setCurrentTime(audioRef.current.currentTime * 1000);
-      // Fallback: try reading duration on every time update
-      if (duration === 0) tryReadDuration();
+      if (audioRef.current.duration && isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
+        setDuration(audioRef.current.duration * 1000);
+      }
     }
-  }, [duration, tryReadDuration]);
+  }, []);
 
   const handleEnded = useCallback(() => {
     setIsPlaying(false);
-    // When playback ends, currentTime = duration, so we know the real duration
     if (audioRef.current && audioRef.current.currentTime > 0) {
       setDuration(audioRef.current.currentTime * 1000);
     }
@@ -57,12 +60,16 @@ export default function PostRecordingControls() {
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', tryReadDuration);
     audio.addEventListener('durationchange', tryReadDuration);
+    audio.addEventListener('canplaythrough', tryReadDuration);
     audio.addEventListener('ended', handleEnded);
+    const timer = setTimeout(tryReadDuration, 500);
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', tryReadDuration);
       audio.removeEventListener('durationchange', tryReadDuration);
+      audio.removeEventListener('canplaythrough', tryReadDuration);
       audio.removeEventListener('ended', handleEnded);
+      clearTimeout(timer);
     };
   }, [handleTimeUpdate, tryReadDuration, handleEnded]);
 
