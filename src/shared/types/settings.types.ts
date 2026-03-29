@@ -21,6 +21,14 @@ export const SETTINGS_KEYS = {
   AUDIO_INPUT_DEVICE: 'audio_input_device',
   AUDIO_OUTPUT_DEVICE: 'audio_output_device',
   STORAGE_PATH: 'storage_path',
+  // PKI / Certificate settings
+  PKI_ENABLED: 'pki_enabled',
+  PKI_CLIENT_CERT_PATH: 'pki_client_cert_path',
+  PKI_CLIENT_KEY_PATH: 'pki_client_key_path',
+  PKI_CLIENT_PFX_PASSPHRASE: 'pki_client_pfx_passphrase',
+  PKI_CA_CERT_PATH: 'pki_ca_cert_path',
+  PKI_USE_SYSTEM_CERTS: 'pki_use_system_certs',
+  PKI_REJECT_UNAUTHORIZED: 'pki_reject_unauthorized',
 } as const;
 
 export type AiProviderType = 'openai' | 'anthropic' | 'custom';

@@ -28,6 +28,7 @@ import { TrayService } from './services/tray.service';
 
 import { registerAllHandlers } from './ipc/handlers';
 import { DEFAULT_PROMPT_PROFILES } from '../shared/constants';
+import { applyPkiEnvironment, invalidatePkiAgent } from './services/pki-fetch';
 
 // Vite globals injected by @electron-forge/plugin-vite
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -121,6 +122,9 @@ function bootstrap(): ServiceContainer {
     }
   }
 
+  // Apply PKI environment variables (custom CA, TLS settings) before any fetch calls
+  applyPkiEnvironment(settings);
+
   // TrayService needs the window — will be set after window creation
   const trayService = null as unknown as TrayService;
 
@@ -195,6 +199,24 @@ const createWindow = (services: ServiceContainer) => {
 protocol.registerSchemesAsPrivileged([
   { scheme: 'audio-file', privileges: { bypassCSP: true, stream: true, supportFetchAPI: true } },
 ]);
+
+// Handle client certificate selection (mTLS)
+app.on('select-client-certificate', (event, _webContents, _url, list, callback) => {
+  if (list.length > 0) {
+    event.preventDefault();
+    callback(list[0]);
+  }
+});
+
+// Handle certificate errors for custom / self-signed CAs
+app.on('certificate-error', (event, _webContents, _url, _error, _certificate, callback) => {
+  // Only bypass when PKI is enabled and reject_unauthorized is explicitly 'false'
+  // The settingsRepo is not available here yet, so we check the env var we set in bootstrap
+  if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+    event.preventDefault();
+    callback(true);
+  }
+});
 
 app.on('ready', () => {
   // Register protocol handler to serve local audio files
