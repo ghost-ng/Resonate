@@ -5,8 +5,8 @@ export const AUDIO_CHANNELS = 2;
 export const AUDIO_BIT_DEPTH = 16;
 export const PROCESS_MONITOR_INTERVAL_MS = 5000;
 export const STT_WORKER_TIMEOUT_MS = 300_000;
-export const DEFAULT_SYSTEM_PROMPT = `You are a meeting notes assistant. Analyze the provided transcript and produce structured notes including: key decisions, discussion topics, action items with assignees, and a brief summary. Format in markdown.`;
-export const DEFAULT_USER_PROMPT_TEMPLATE = `Here is the transcript from a {{duration}} minute {{source_app}} call with {{participant_count}} participants on {{date}}:\n\n{{transcript}}\n\nPlease generate structured meeting notes.`;
+export const DEFAULT_SYSTEM_PROMPT = `You are a meeting notes assistant. Analyze ONLY the provided transcript — do NOT invent, assume, or hallucinate any information not present in the transcript. If the transcript is too short or unclear to summarize meaningfully, say so. Produce structured notes including: key decisions, discussion topics, action items with assignees, and a brief summary. Format in markdown.`;
+export const DEFAULT_USER_PROMPT_TEMPLATE = `Here is the transcript from a {{duration}} minute {{source_app}} call with {{participant_count}} participants on {{date}}:\n\n{{transcript}}\n\nPlease generate structured meeting notes based ONLY on what is in the transcript above. Do not add any information that is not in the transcript.`;
 
 export interface DefaultPromptProfileSeed {
   name: string;
@@ -15,37 +15,39 @@ export interface DefaultPromptProfileSeed {
   is_default: boolean;
 }
 
+export const ANTI_HALLUCINATION = 'IMPORTANT: Use ONLY information from the transcript. Do NOT invent, assume, or add any details not explicitly stated. If the transcript is too short or unclear, say so honestly.';
+
 export const DEFAULT_PROMPT_PROFILES: DefaultPromptProfileSeed[] = [
   {
     name: 'Meeting Notes',
     system_prompt:
-      'You are a meeting notes assistant. Analyze the provided transcript and produce structured notes including: key decisions, discussion topics, action items with assignees, and a brief summary. Format in markdown.',
+      `You are a meeting notes assistant. Analyze ONLY the provided transcript and produce structured notes. ${ANTI_HALLUCINATION} Include: key decisions, discussion topics, action items with assignees, and a brief summary. Format in markdown.`,
     user_prompt_template:
-      'Here is the transcript from a {{duration}} minute {{source_app}} call with {{participant_count}} participants on {{date}}:\n\n{{transcript}}\n\nPlease generate structured meeting notes.',
+      'Here is the transcript from a {{duration}} {{source_app}} call with {{participant_count}} participants on {{date}}:\n\n{{transcript}}\n\nGenerate meeting notes based strictly on the transcript above.',
     is_default: true,
   },
   {
     name: 'Action Items Only',
     system_prompt:
-      'Extract only the action items from this meeting transcript. List each action item with the responsible person if mentioned. Be concise.',
+      `Extract only the action items from this transcript. ${ANTI_HALLUCINATION} List each action item with the responsible person if mentioned. If there are no action items, say "No action items found."`,
     user_prompt_template:
-      'Transcript:\n\n{{transcript}}\n\nList all action items.',
+      'Transcript:\n\n{{transcript}}\n\nList all action items found in the transcript above only.',
     is_default: false,
   },
   {
     name: 'Executive Summary',
     system_prompt:
-      'Write a brief executive summary of this meeting. Focus on decisions made, key outcomes, and next steps. Keep it under 200 words.',
+      `Write a brief summary of this conversation. ${ANTI_HALLUCINATION} Focus on what was actually discussed. Keep it under 200 words.`,
     user_prompt_template:
-      'Meeting transcript ({{duration}} min, {{date}}):\n\n{{transcript}}\n\nProvide an executive summary.',
+      'Transcript ({{duration}}, {{date}}):\n\n{{transcript}}\n\nSummarize only what was discussed in this transcript.',
     is_default: false,
   },
   {
     name: 'Detailed Minutes',
     system_prompt:
-      'Create detailed meeting minutes including: attendees, agenda items discussed, decisions, action items, follow-ups, and timeline. Use a formal tone.',
+      `Create detailed meeting minutes based strictly on the transcript. ${ANTI_HALLUCINATION} Include: speakers mentioned, topics discussed, any decisions or action items. Use a formal tone.`,
     user_prompt_template:
-      'Full transcript from {{source_app}} meeting on {{date}} ({{duration}} minutes, {{participant_count}} participants):\n\n{{transcript}}\n\nGenerate detailed meeting minutes.',
+      'Full transcript from {{source_app}} on {{date}} ({{duration}}, {{participant_count}} participants):\n\n{{transcript}}\n\nGenerate detailed minutes using only information from this transcript.',
     is_default: false,
   },
   {

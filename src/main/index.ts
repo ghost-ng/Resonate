@@ -76,7 +76,7 @@ function bootstrap(): ServiceContainer {
   const processMonitor = new ProcessMonitorService(settings, (appName, processName) => {
     mainWindow?.webContents.send('auto-detect:app-found', { appName, processName });
   });
-  // Seed default prompt profiles if the table is empty
+  // Seed or update default prompt profiles
   const existingProfiles = promptProfiles.findAll();
   if (existingProfiles.length === 0) {
     for (const profile of DEFAULT_PROMPT_PROFILES) {
@@ -86,6 +86,27 @@ function bootstrap(): ServiceContainer {
         user_prompt_template: profile.user_prompt_template,
         is_default: profile.is_default,
       });
+    }
+  } else {
+    // Update existing default profiles if they have old prompts (without anti-hallucination)
+    const needsUpdate = existingProfiles.some(
+      (p) => p.system_prompt && !p.system_prompt.includes('ONLY') && !p.system_prompt.includes('hallucinate')
+    );
+    if (needsUpdate) {
+      // Delete old defaults and re-seed
+      for (const p of existingProfiles) {
+        const isDefault = DEFAULT_PROMPT_PROFILES.some((d) => d.name === p.name);
+        if (isDefault) promptProfiles.delete(p.id);
+      }
+      for (const profile of DEFAULT_PROMPT_PROFILES) {
+        promptProfiles.create({
+          name: profile.name,
+          system_prompt: profile.system_prompt,
+          user_prompt_template: profile.user_prompt_template,
+          is_default: profile.is_default,
+        });
+      }
+      console.log('[Bootstrap] Updated prompt profiles with anti-hallucination prompts');
     }
   }
 
