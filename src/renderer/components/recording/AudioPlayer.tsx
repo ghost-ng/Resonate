@@ -1,5 +1,10 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { formatTimestamp } from '../../lib/formatters';
+import { useNotebookStore } from '../../stores/notebook.store';
+import { useRecordingStore } from '../../stores/recording.store';
+import { ALL_RECORDINGS_ID } from '../../lib/constants';
+import Dropdown from '../shared/Dropdown';
+import type { DropdownItem } from '../shared/Dropdown';
 
 interface Props {
   audioPath: string;
@@ -69,6 +74,36 @@ export default function AudioPlayer({ audioPath, recordingId, onStatusChange }: 
     audio.currentTime = (fraction * duration) / 1000;
   };
 
+  // "Send to" notebook dropdown
+  const notebooks = useNotebookStore((s) => s.notebooks);
+  const moveToNotebook = useRecordingStore((s) => s.moveToNotebook);
+  const fetchRecordings = useRecordingStore((s) => s.fetchRecordings);
+  const selectedNotebookId = useNotebookStore((s) => s.selectedNotebookId);
+
+  const sendToItems = useMemo<DropdownItem[]>(() => {
+    const items: DropdownItem[] = notebooks.map((nb) => ({
+      label: `${nb.icon} ${nb.name}`,
+      action: () => {
+        moveToNotebook(recordingId, nb.id);
+        if (selectedNotebookId !== ALL_RECORDINGS_ID) {
+          fetchRecordings(selectedNotebookId);
+        }
+      },
+    }));
+    if (items.length > 0) {
+      items.push({ label: '', action: () => {}, separator: true });
+    }
+    items.push({
+      label: 'Copy (same as move)',
+      action: () => {
+        if (notebooks.length > 0) {
+          moveToNotebook(recordingId, notebooks[0].id);
+        }
+      },
+    });
+    return items;
+  }, [notebooks, recordingId, moveToNotebook, fetchRecordings, selectedNotebookId]);
+
   const [status, setStatus] = useState('');
 
   const handleTranscribe = async () => {
@@ -137,6 +172,14 @@ export default function AudioPlayer({ audioPath, recordingId, onStatusChange }: 
           >
             Send to AI
           </button>
+          <Dropdown
+            trigger={
+              <button className="rounded-card border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-3">
+                Send to &#9662;
+              </button>
+            }
+            items={sendToItems}
+          />
         </div>
         <div
           onClick={handleSeek}
