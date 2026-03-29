@@ -6,6 +6,7 @@ import started from 'electron-squirrel-startup';
 import { getDatabase, closeDatabase } from './db/connection';
 import { runMigrations } from './db/migration-runner';
 import { migration001 } from './db/migrations/001_initial_schema';
+import { migration002 } from './db/migrations/002_workspace_cards';
 
 import { NotebookRepository } from './db/repositories/notebook.repo';
 import { RecordingRepository } from './db/repositories/recording.repo';
@@ -14,6 +15,9 @@ import { SummaryRepository } from './db/repositories/summary.repo';
 import { ActionItemRepository } from './db/repositories/action-item.repo';
 import { PromptProfileRepository } from './db/repositories/prompt-profile.repo';
 import { SettingsRepository } from './db/repositories/settings.repo';
+import { WorkspaceCardRepository } from './db/repositories/workspace-card.repo';
+import { CustomTaskRepository } from './db/repositories/custom-task.repo';
+import { HighlightRepository } from './db/repositories/highlight.repo';
 
 import { AudioCaptureService } from './services/audio-capture.service';
 import { SttRouterService } from './services/stt-router.service';
@@ -38,6 +42,9 @@ export interface ServiceContainer {
   actionItems: ActionItemRepository;
   promptProfiles: PromptProfileRepository;
   settings: SettingsRepository;
+  workspaceCards: WorkspaceCardRepository;
+  customTasks: CustomTaskRepository;
+  highlights: HighlightRepository;
   // Services
   audioCapture: AudioCaptureService;
   sttRouter: SttRouterService;
@@ -57,7 +64,7 @@ let debugModeEnabled = false;
 
 function bootstrap(): ServiceContainer {
   const db = getDatabase();
-  runMigrations(db, [migration001]);
+  runMigrations(db, [migration001, migration002]);
 
   // Repositories
   const notebooks = new NotebookRepository(db);
@@ -67,6 +74,9 @@ function bootstrap(): ServiceContainer {
   const actionItems = new ActionItemRepository(db);
   const promptProfiles = new PromptProfileRepository(db);
   const settings = new SettingsRepository(db);
+  const workspaceCards = new WorkspaceCardRepository(db);
+  const customTasks = new CustomTaskRepository(db);
+  const highlights = new HighlightRepository(db);
 
   // Services
   const safeStorage = new SafeStorageService();
@@ -122,6 +132,9 @@ function bootstrap(): ServiceContainer {
     actionItems,
     promptProfiles,
     settings,
+    workspaceCards,
+    customTasks,
+    highlights,
     audioCapture,
     sttRouter,
     aiSummary,
