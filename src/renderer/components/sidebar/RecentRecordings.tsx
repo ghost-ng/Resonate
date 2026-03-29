@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useDraggable } from '@dnd-kit/core';
 import { useRecordingStore } from '../../stores/recording.store';
 import { useNotebookStore } from '../../stores/notebook.store';
 import { useContextMenu } from '../../hooks/useContextMenu';
@@ -7,7 +6,7 @@ import { formatRelativeDate, formatDurationShort } from '../../lib/formatters';
 import { ALL_RECORDINGS_ID } from '../../lib/constants';
 import type { Recording } from '../../../shared/types/database.types';
 
-function DraggableRecordingItem({
+function RecordingItem({
   rec,
   isActive,
   onClick,
@@ -18,26 +17,11 @@ function DraggableRecordingItem({
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({
-    id: `recording-${rec.id}`,
-    data: { type: 'recording', recordingId: rec.id },
-  });
-
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
-    : undefined;
-
   return (
     <button
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
       onClick={onClick}
       onContextMenu={onContextMenu}
-      style={style}
       className={`flex w-full flex-col gap-0.5 rounded-card px-3 py-1.5 text-left transition-colors ${
-        isDragging ? 'opacity-40' : ''
-      } ${
         isActive
           ? 'bg-accent/15 text-accent'
           : 'text-text-muted hover:bg-surface-2 hover:text-text'
@@ -70,6 +54,16 @@ export default function RecentRecordings() {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 20);
 
+  const renderItem = (rec: Recording) => (
+    <RecordingItem
+      key={rec.id}
+      rec={rec}
+      isActive={activeTabId === rec.id}
+      onClick={() => openTab(rec.id)}
+      onContextMenu={(e) => ctxMenu.show(e, { type: 'recording', id: rec.id })}
+    />
+  );
+
   // When a specific notebook is selected, show only that notebook's recordings
   if (selectedNotebookId !== ALL_RECORDINGS_ID) {
     const filtered = recordings.filter((r) => r.notebook_id === selectedNotebookId);
@@ -80,15 +74,10 @@ export default function RecentRecordings() {
         <div className="px-1 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-text-muted/60">
           Recordings
         </div>
-        {recent.map((rec) => (
-          <DraggableRecordingItem
-            key={rec.id}
-            rec={rec}
-            isActive={activeTabId === rec.id}
-            onClick={() => openTab(rec.id)}
-            onContextMenu={(e) => ctxMenu.show(e, { type: 'recording', id: rec.id })}
-          />
-        ))}
+        {recent.length === 0 && (
+          <p className="px-3 py-2 text-xs text-text-muted/40">No recordings yet</p>
+        )}
+        {recent.map(renderItem)}
       </div>
     );
   }
@@ -112,26 +101,14 @@ export default function RecentRecordings() {
             className="flex w-full items-center gap-1 px-1 pb-1 pt-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted/60 hover:text-text-muted"
           >
             <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              fill="currentColor"
+              width="10" height="10" viewBox="0 0 10 10" fill="currentColor"
               className={`shrink-0 transition-transform ${collapsedSections['unassigned'] ? '' : 'rotate-90'}`}
             >
               <path d="M3 1l4 4-4 4z" />
             </svg>
             Unassigned
           </button>
-          {!collapsedSections['unassigned'] &&
-            unassigned.map((rec) => (
-              <DraggableRecordingItem
-                key={rec.id}
-                rec={rec}
-                isActive={activeTabId === rec.id}
-                onClick={() => openTab(rec.id)}
-                onContextMenu={(e) => ctxMenu.show(e, { type: 'recording', id: rec.id })}
-              />
-            ))}
+          {!collapsedSections['unassigned'] && unassigned.map(renderItem)}
         </>
       )}
 
@@ -143,10 +120,7 @@ export default function RecentRecordings() {
             className="flex w-full items-center gap-1 px-1 pb-1 pt-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted/60 hover:text-text-muted"
           >
             <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              fill="currentColor"
+              width="10" height="10" viewBox="0 0 10 10" fill="currentColor"
               className={`shrink-0 transition-transform ${collapsedSections[`nb-${notebook.id}`] ? '' : 'rotate-90'}`}
             >
               <path d="M3 1l4 4-4 4z" />
@@ -154,18 +128,13 @@ export default function RecentRecordings() {
             <span className="mr-1">{notebook.icon}</span>
             {notebook.name}
           </button>
-          {!collapsedSections[`nb-${notebook.id}`] &&
-            nbRecordings.map((rec) => (
-              <DraggableRecordingItem
-                key={rec.id}
-                rec={rec}
-                isActive={activeTabId === rec.id}
-                onClick={() => openTab(rec.id)}
-                onContextMenu={(e) => ctxMenu.show(e, { type: 'recording', id: rec.id })}
-              />
-            ))}
+          {!collapsedSections[`nb-${notebook.id}`] && nbRecordings.map(renderItem)}
         </div>
       ))}
+
+      {unassigned.length === 0 && grouped.length === 0 && (
+        <p className="px-3 py-4 text-xs text-text-muted/40">No recordings yet</p>
+      )}
     </div>
   );
 }

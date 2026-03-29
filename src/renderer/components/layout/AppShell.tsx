@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { ALL_RECORDINGS_ID } from '../../lib/constants';
 import { useUiStore } from '../../stores/ui.store';
 import { useNotebookStore } from '../../stores/notebook.store';
@@ -44,40 +42,6 @@ export default function AppShell() {
   const selectedNotebookId = useNotebookStore((s) => s.selectedNotebookId);
   const deleteRecording = useRecordingStore((s) => s.deleteRecording);
   const openTab = useRecordingStore((s) => s.openTab);
-
-  // DnD sensors & state
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-  const [draggedRecordingId, setDraggedRecordingId] = useState<number | null>(null);
-
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const data = event.active.data.current;
-    if (data?.type === 'recording') {
-      setDraggedRecordingId(data.recordingId as number);
-    }
-  }, []);
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      setDraggedRecordingId(null);
-      const { active, over } = event;
-      if (!over) return;
-      const activeData = active.data.current;
-      const overData = over.data.current;
-      if (activeData?.type === 'recording' && overData?.type === 'notebook') {
-        const recordingId = activeData.recordingId as number;
-        const notebookId = overData.notebookId as number;
-        moveToNotebook(recordingId, notebookId);
-        if (selectedNotebookId !== ALL_RECORDINGS_ID) {
-          fetchRecordings(selectedNotebookId);
-        }
-      }
-    },
-    [moveToNotebook, fetchRecordings, selectedNotebookId]
-  );
-
-  const draggedRecording = draggedRecordingId != null
-    ? recordings.find((r) => r.id === draggedRecordingId)
-    : null;
 
   // Rename modal state
   const [renameTarget, setRenameTarget] = useState<{ type: 'notebook' | 'recording'; id: number; currentName: string } | null>(null);
@@ -197,7 +161,6 @@ export default function AppShell() {
   }, [deleteTarget, deleteNotebook, deleteRecording]);
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
     <div className="flex h-full flex-col bg-bg">
       <div className="flex flex-1 overflow-hidden">
         {!sidebarCollapsed && <Sidebar />}
@@ -311,15 +274,6 @@ export default function AppShell() {
         />
       </Modal>
 
-      {/* Drag overlay for recording items */}
-      <DragOverlay dropAnimation={null}>
-        {draggedRecording ? (
-          <div className="rounded-card bg-surface px-3 py-1.5 text-sm text-accent opacity-80 shadow-lg border border-accent/30">
-            {draggedRecording.title}
-          </div>
-        ) : null}
-      </DragOverlay>
     </div>
-    </DndContext>
   );
 }
