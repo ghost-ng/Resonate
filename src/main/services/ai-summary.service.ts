@@ -238,6 +238,9 @@ export class AiSummaryService {
       content = json.choices?.[0]?.message?.content ?? '';
     }
 
+    // 6b. Strip code fences if the AI wrapped its response in them
+    content = content.replace(/^```(?:markdown)?\s*\n?/i, '').replace(/\n?```\s*$/, '').trim();
+
     // 7. Extract action items
     const actionItems = extractActionItems(content);
 
