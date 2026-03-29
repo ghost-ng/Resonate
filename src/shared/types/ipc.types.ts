@@ -42,6 +42,10 @@ export interface IpcChannelMap {
 
   'audio:get-devices': { args: void; result: { inputs: AudioDeviceInfo[]; outputs: AudioDeviceInfo[] } };
 
+  'app:reset-settings': { args: void; result: void };
+  'app:erase-all-data': { args: void; result: void };
+  'app:get-storage-info': { args: void; result: { dbSizeBytes: number; audioSizeBytes: number; recordingCount: number; audioFileCount: number } };
+
   'ai:list-models': {
     args: { endpoint: string; apiKey: string; type: 'openai' | 'anthropic' };
     result: { models: string[]; error?: string };

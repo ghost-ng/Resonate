@@ -1,5 +1,8 @@
-import { Component, type ReactNode } from 'react';
+import { Component, useEffect, type ReactNode } from 'react';
 import AppShell from './components/layout/AppShell';
+import { useNotebookStore } from './stores/notebook.store';
+import { useRecordingStore } from './stores/recording.store';
+import { useSettingsStore } from './stores/settings.store';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
@@ -28,10 +31,22 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
+function AppInitializer() {
+  useEffect(() => {
+    // Load all persistent data on app start
+    useNotebookStore.getState().fetchNotebooks();
+    useRecordingStore.getState().fetchRecordings();
+    useSettingsStore.getState().fetchSettings();
+    useSettingsStore.getState().fetchPromptProfiles();
+  }, []);
+
+  return <AppShell />;
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
-      <AppShell />
+      <AppInitializer />
     </ErrorBoundary>
   );
 }
