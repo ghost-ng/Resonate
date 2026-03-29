@@ -19,10 +19,11 @@ export default function RecordingView() {
   const transcripts = useRecordingStore((s) => s.transcripts);
   const summaries = useRecordingStore((s) => s.summaries);
   const recordingPhase = useSessionStore((s) => s.recordingPhase);
+  const lastRecordingId = useSessionStore((s) => s.lastRecordingId);
+  const startRecording = useSessionStore((s) => s.startRecording);
   const fetchTranscript = useRecordingStore((s) => s.fetchTranscript);
   const fetchSummary = useRecordingStore((s) => s.fetchSummary);
   const fetchRecordings = useRecordingStore((s) => s.fetchRecordings);
-  const startRecording = useSessionStore((s) => s.startRecording);
   const selectedNotebookId = useNotebookStore((s) => s.selectedNotebookId);
   const notebooks = useNotebookStore((s) => s.notebooks);
 
@@ -102,8 +103,6 @@ export default function RecordingView() {
       </div>
     );
   }
-
-  const lastRecordingId = useSessionStore((s) => s.lastRecordingId);
 
   // Recording in progress (no tab yet — recording was started from empty state)
   if (!activeTabId && recordingPhase !== 'idle') {
