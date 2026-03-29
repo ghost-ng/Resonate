@@ -1,4 +1,4 @@
-import type { Notebook, Recording, Transcript, TranscriptSegmentRow, Summary, ActionItem, PromptProfile } from './database.types';
+import type { Notebook, Recording, Transcript, TranscriptSegmentRow, Summary, ActionItem, PromptProfile, WorkspaceCard, CustomTask, TranscriptHighlight } from './database.types';
 
 export interface TranscriptWithSegments extends Transcript {
   segments: TranscriptSegmentRow[];
@@ -51,6 +51,23 @@ export interface IpcChannelMap {
     args: { endpoint: string; apiKey: string; type: 'openai' | 'anthropic' };
     result: { models: string[]; error?: string };
   };
+
+  'workspace-card:list': { args: { recordingId: number }; result: WorkspaceCard[] };
+  'workspace-card:get': { args: { id: number }; result: WorkspaceCard | null };
+  'workspace-card:create': { args: { recording_id: number; card_type: string; title: string; grid_col?: number; grid_row?: number; grid_w?: number; grid_h?: number }; result: WorkspaceCard };
+  'workspace-card:update': { args: { id: number; title?: string; grid_col?: number; grid_row?: number; grid_w?: number; grid_h?: number; collapsed?: number; sort_order?: number }; result: WorkspaceCard };
+  'workspace-card:delete': { args: { id: number }; result: void };
+  'workspace-card:init-defaults': { args: { recordingId: number }; result: WorkspaceCard[] };
+
+  'custom-task:list': { args: { cardId: number }; result: CustomTask[] };
+  'custom-task:create': { args: { card_id: number; text: string; source_segment_id?: number }; result: CustomTask };
+  'custom-task:update': { args: { id: number; text?: string; completed?: number; sort_order?: number }; result: CustomTask };
+  'custom-task:delete': { args: { id: number }; result: void };
+
+  'highlight:list': { args: { recordingId: number }; result: TranscriptHighlight[] };
+  'highlight:create': { args: { recording_id: number; segment_id: number; highlight_type: string; color?: string; note?: string; reminder_date?: string }; result: TranscriptHighlight };
+  'highlight:update': { args: { id: number; color?: string; note?: string; reminder_date?: string }; result: TranscriptHighlight };
+  'highlight:delete': { args: { id: number }; result: void };
 }
 
 export interface IpcEventMap {

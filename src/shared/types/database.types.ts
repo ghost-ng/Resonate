@@ -70,3 +70,38 @@ export interface Setting {
   key: string;
   value: string;
 }
+
+export interface WorkspaceCard {
+  id: number;
+  recording_id: number;
+  card_type: 'transcript' | 'summary' | 'action_items' | 'custom_task';
+  title: string;
+  grid_col: number;
+  grid_row: number;
+  grid_w: number;
+  grid_h: number;
+  collapsed: number;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface CustomTask {
+  id: number;
+  card_id: number;
+  text: string;
+  completed: number;
+  source_segment_id: number | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface TranscriptHighlight {
+  id: number;
+  recording_id: number;
+  segment_id: number;
+  highlight_type: 'important' | 'task_source' | 'date_reminder';
+  color: string;
+  note: string | null;
+  reminder_date: string | null;
+  created_at: string;
+}
