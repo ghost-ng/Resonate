@@ -1,5 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useWorkspaceStore } from '../../../stores/workspace.store';
+import type { CustomTask } from '../../../../shared/types/database.types';
+
+const EMPTY_TASKS: CustomTask[] = [];
 
 interface Props {
   cardId: number;
@@ -7,7 +10,8 @@ interface Props {
 }
 
 export default function CustomTaskCardContent({ cardId, recordingId }: Props) {
-  const tasks = useWorkspaceStore((s) => s.tasks[cardId] ?? []);
+  const allTasks = useWorkspaceStore((s) => s.tasks);
+  const tasks = useMemo(() => allTasks[cardId] ?? EMPTY_TASKS, [allTasks, cardId]);
   const fetchTasks = useWorkspaceStore((s) => s.fetchTasks);
   const addTask = useWorkspaceStore((s) => s.addTask);
   const toggleTask = useWorkspaceStore((s) => s.toggleTask);

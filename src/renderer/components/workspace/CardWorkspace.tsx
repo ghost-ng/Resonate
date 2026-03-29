@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import type { TranscriptWithSegments, SummaryWithActions } from '../../../shared/types/ipc.types';
 import type { WorkspaceCard as CardType } from '../../../shared/types/database.types';
 import { useWorkspaceStore } from '../../stores/workspace.store';
@@ -9,6 +9,9 @@ import ActionItemsCardContent from './cards/ActionItemsCardContent';
 import CustomTaskCardContent from './cards/CustomTaskCardContent';
 import Modal from '../shared/Modal';
 
+const EMPTY_CARDS: CardType[] = [];
+const EMPTY_HIGHLIGHTS: import('../../../shared/types/database.types').TranscriptHighlight[] = [];
+
 interface Props {
   recordingId: number;
   transcript: TranscriptWithSegments | null;
@@ -16,8 +19,10 @@ interface Props {
 }
 
 export default function CardWorkspace({ recordingId, transcript, summary }: Props) {
-  const storeCards = useWorkspaceStore((s) => s.cards[recordingId] ?? []);
-  const highlights = useWorkspaceStore((s) => s.highlights[recordingId] ?? []);
+  const allCards = useWorkspaceStore((s) => s.cards);
+  const allHighlights = useWorkspaceStore((s) => s.highlights);
+  const storeCards = useMemo(() => allCards[recordingId] ?? EMPTY_CARDS, [allCards, recordingId]);
+  const highlights = useMemo(() => allHighlights[recordingId] ?? EMPTY_HIGHLIGHTS, [allHighlights, recordingId]);
   const fetchCards = useWorkspaceStore((s) => s.fetchCards);
   const fetchHighlights = useWorkspaceStore((s) => s.fetchHighlights);
   const addCustomCard = useWorkspaceStore((s) => s.addCustomCard);
