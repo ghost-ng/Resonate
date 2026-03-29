@@ -46,6 +46,7 @@ export default function NotebookList() {
       {notebooks.map((nb) => (
         <NotebookItem
           key={nb.id}
+          id={nb.id}
           icon={nb.icon}
           name={nb.name}
           count={getCount(nb.id)}

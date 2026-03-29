@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { ALL_RECORDINGS_ID } from '../../lib/constants';
 import { useUiStore } from '../../stores/ui.store';
 import { useNotebookStore } from '../../stores/notebook.store';
@@ -30,6 +32,53 @@ export default function AppShell() {
   // Recording timer
   useRecordingTimer();
 
+  // Store selectors
+  const ctxMenu = useContextMenu();
+  const deleteNotebook = useNotebookStore((s) => s.deleteNotebook);
+  const updateNotebook = useNotebookStore((s) => s.updateNotebook);
+  const updateRecording = useRecordingStore((s) => s.updateRecording);
+  const moveToNotebook = useRecordingStore((s) => s.moveToNotebook);
+  const fetchRecordings = useRecordingStore((s) => s.fetchRecordings);
+  const recordings = useRecordingStore((s) => s.recordings);
+  const notebooks = useNotebookStore((s) => s.notebooks);
+  const selectedNotebookId = useNotebookStore((s) => s.selectedNotebookId);
+  const deleteRecording = useRecordingStore((s) => s.deleteRecording);
+  const openTab = useRecordingStore((s) => s.openTab);
+
+  // DnD sensors & state
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const [draggedRecordingId, setDraggedRecordingId] = useState<number | null>(null);
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const data = event.active.data.current;
+    if (data?.type === 'recording') {
+      setDraggedRecordingId(data.recordingId as number);
+    }
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setDraggedRecordingId(null);
+      const { active, over } = event;
+      if (!over) return;
+      const activeData = active.data.current;
+      const overData = over.data.current;
+      if (activeData?.type === 'recording' && overData?.type === 'notebook') {
+        const recordingId = activeData.recordingId as number;
+        const notebookId = overData.notebookId as number;
+        moveToNotebook(recordingId, notebookId);
+        if (selectedNotebookId !== ALL_RECORDINGS_ID) {
+          fetchRecordings(selectedNotebookId);
+        }
+      }
+    },
+    [moveToNotebook, fetchRecordings, selectedNotebookId]
+  );
+
+  const draggedRecording = draggedRecordingId != null
+    ? recordings.find((r) => r.id === draggedRecordingId)
+    : null;
+
   // Rename modal state
   const [renameTarget, setRenameTarget] = useState<{ type: 'notebook' | 'recording'; id: number; currentName: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -47,17 +96,6 @@ export default function AppShell() {
     window.addEventListener('yourecord:new-notebook', handler);
     return () => window.removeEventListener('yourecord:new-notebook', handler);
   }, []);
-
-  // Context menu
-  const ctxMenu = useContextMenu();
-  const deleteNotebook = useNotebookStore((s) => s.deleteNotebook);
-  const updateNotebook = useNotebookStore((s) => s.updateNotebook);
-  const updateRecording = useRecordingStore((s) => s.updateRecording);
-  const moveToNotebook = useRecordingStore((s) => s.moveToNotebook);
-  const fetchRecordings = useRecordingStore((s) => s.fetchRecordings);
-  const recordings = useRecordingStore((s) => s.recordings);
-  const notebooks = useNotebookStore((s) => s.notebooks);
-  const selectedNotebookId = useNotebookStore((s) => s.selectedNotebookId);
 
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => {
     if (!ctxMenu.target) return [];
@@ -101,6 +139,11 @@ export default function AppShell() {
 
       return [
         {
+          label: 'Open in Tab',
+          action: () => openTab(id),
+        },
+        { label: '', action: () => {}, separator: true },
+        {
           label: 'Rename',
           action: () => {
             setRenameValue(recording?.title ?? '');
@@ -122,7 +165,7 @@ export default function AppShell() {
     }
 
     return [];
-  }, [ctxMenu.target, recordings, notebooks, selectedNotebookId, moveToNotebook, fetchRecordings]);
+  }, [ctxMenu.target, recordings, notebooks, selectedNotebookId, moveToNotebook, fetchRecordings, openTab]);
 
   const handleConfirmRename = useCallback(() => {
     if (!renameTarget || !renameValue.trim()) return;
@@ -143,8 +186,6 @@ export default function AppShell() {
   // Delete confirmation modal
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: number } | null>(null);
 
-  const deleteRecording = useRecordingStore((s) => s.deleteRecording);
-
   const handleConfirmDelete = useCallback(() => {
     if (!deleteTarget) return;
     if (deleteTarget.type === 'notebook') {
@@ -156,6 +197,7 @@ export default function AppShell() {
   }, [deleteTarget, deleteNotebook, deleteRecording]);
 
   return (
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
     <div className="flex h-full flex-col bg-bg">
       <div className="flex flex-1 overflow-hidden">
         {!sidebarCollapsed && <Sidebar />}
@@ -268,6 +310,16 @@ export default function AppShell() {
           placeholder="Notebook name..."
         />
       </Modal>
+
+      {/* Drag overlay for recording items */}
+      <DragOverlay dropAnimation={null}>
+        {draggedRecording ? (
+          <div className="rounded-card bg-surface px-3 py-1.5 text-sm text-accent opacity-80 shadow-lg border border-accent/30">
+            {draggedRecording.title}
+          </div>
+        ) : null}
+      </DragOverlay>
     </div>
+    </DndContext>
   );
 }
