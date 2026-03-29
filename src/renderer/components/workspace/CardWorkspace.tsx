@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { TranscriptWithSegments, SummaryWithActions } from '../../../shared/types/ipc.types';
+import type { WorkspaceCard as CardType } from '../../../shared/types/database.types';
 import { useWorkspaceStore } from '../../stores/workspace.store';
 import WorkspaceCard from './WorkspaceCard';
 import TranscriptCardContent from './cards/TranscriptCardContent';
@@ -15,20 +16,27 @@ interface Props {
 }
 
 export default function CardWorkspace({ recordingId, transcript, summary }: Props) {
-  const cards = useWorkspaceStore((s) => s.cards[recordingId] ?? []);
+  const storeCards = useWorkspaceStore((s) => s.cards[recordingId] ?? []);
   const highlights = useWorkspaceStore((s) => s.highlights[recordingId] ?? []);
   const fetchCards = useWorkspaceStore((s) => s.fetchCards);
   const fetchHighlights = useWorkspaceStore((s) => s.fetchHighlights);
   const addCustomCard = useWorkspaceStore((s) => s.addCustomCard);
   const updateCard = useWorkspaceStore((s) => s.updateCard);
 
+  // Local card order for live drag reordering
+  const [cards, setCards] = useState<CardType[]>([]);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+  const dragNodeRef = useRef<HTMLDivElement | null>(null);
+
+  // Sync store cards to local state
+  useEffect(() => {
+    setCards(storeCards);
+  }, [storeCards]);
+
   // Add card modal
   const [showAddCard, setShowAddCard] = useState(false);
   const [newCardName, setNewCardName] = useState('');
-
-  // Drag state
-  const [dragSourceId, setDragSourceId] = useState<number | null>(null);
-  const [dragOverId, setDragOverId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchCards(recordingId);
@@ -44,32 +52,47 @@ export default function CardWorkspace({ recordingId, transcript, summary }: Prop
     setShowAddCard(false);
   }, [newCardName, recordingId, addCustomCard]);
 
-  // When a card is dropped on another, swap their grid positions
-  const handleDragEnd = useCallback(() => {
-    if (dragSourceId != null && dragOverId != null && dragSourceId !== dragOverId) {
-      const sourceCard = cards.find((c) => c.id === dragSourceId);
-      const targetCard = cards.find((c) => c.id === dragOverId);
-      if (sourceCard && targetCard) {
-        // Swap grid positions
-        updateCard(sourceCard.id, {
-          grid_col: targetCard.grid_col,
-          grid_row: targetCard.grid_row,
-          grid_w: targetCard.grid_w,
-          grid_h: targetCard.grid_h,
-        }, recordingId);
-        updateCard(targetCard.id, {
-          grid_col: sourceCard.grid_col,
-          grid_row: sourceCard.grid_row,
-          grid_w: sourceCard.grid_w,
-          grid_h: sourceCard.grid_h,
-        }, recordingId);
-      }
-    }
-    setDragSourceId(null);
-    setDragOverId(null);
-  }, [dragSourceId, dragOverId, cards, updateCard, recordingId]);
+  // Drag handlers — reorder cards in real-time
+  const handleDragStart = useCallback((index: number, el: HTMLDivElement) => {
+    setDragIndex(index);
+    dragNodeRef.current = el;
+    // Slight delay so the drag image captures correctly
+    setTimeout(() => {
+      if (dragNodeRef.current) dragNodeRef.current.style.opacity = '0.4';
+    }, 0);
+  }, []);
 
-  const renderCardContent = (card: (typeof cards)[0]) => {
+  const handleDragEnter = useCallback((index: number) => {
+    if (dragIndex === null || dragIndex === index) return;
+    setOverIndex(index);
+
+    // Reorder the local cards array
+    setCards((prev) => {
+      const updated = [...prev];
+      const dragged = updated.splice(dragIndex, 1)[0];
+      updated.splice(index, 0, dragged);
+      return updated;
+    });
+    setDragIndex(index); // Update drag index to new position
+  }, [dragIndex]);
+
+  const handleDragEnd = useCallback(() => {
+    if (dragNodeRef.current) dragNodeRef.current.style.opacity = '1';
+    dragNodeRef.current = null;
+    setDragIndex(null);
+    setOverIndex(null);
+
+    // Persist the new order: assign grid positions based on array order
+    cards.forEach((card, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      if (card.grid_col !== col || card.grid_row !== row) {
+        updateCard(card.id, { grid_col: col, grid_row: row, grid_w: 1, grid_h: 1 }, recordingId);
+      }
+    });
+  }, [cards, updateCard, recordingId]);
+
+  const renderCardContent = (card: CardType) => {
     switch (card.card_type) {
       case 'transcript':
         return (
@@ -96,16 +119,18 @@ export default function CardWorkspace({ recordingId, transcript, summary }: Prop
         className="grid gap-[10px]"
         style={{
           gridTemplateColumns: 'repeat(2, 1fr)',
-          gridAutoRows: 'minmax(150px, auto)',
+          gridAutoRows: 'minmax(120px, auto)',
         }}
       >
-        {cards.map((card) => (
+        {cards.map((card, index) => (
           <WorkspaceCard
             key={card.id}
             card={card}
             recordingId={recordingId}
-            onDragStart={(id) => setDragSourceId(id)}
-            onDragOver={(id) => setDragOverId(id)}
+            index={index}
+            isDragOver={overIndex === index}
+            onDragStart={handleDragStart}
+            onDragEnter={handleDragEnter}
             onDragEnd={handleDragEnd}
           >
             {renderCardContent(card)}
@@ -122,7 +147,6 @@ export default function CardWorkspace({ recordingId, transcript, summary }: Prop
         </button>
       </div>
 
-      {/* Add Card Modal */}
       <Modal
         isOpen={showAddCard}
         title="New Card"

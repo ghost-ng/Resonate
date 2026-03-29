@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { WorkspaceCard as WorkspaceCardType } from '../../../shared/types/database.types';
 import { useWorkspaceStore } from '../../stores/workspace.store';
 
@@ -6,19 +6,24 @@ interface Props {
   card: WorkspaceCardType;
   children: React.ReactNode;
   recordingId: number;
-  onDragStart?: (cardId: number) => void;
-  onDragOver?: (cardId: number) => void;
-  onDragEnd?: () => void;
+  index: number;
+  isDragOver: boolean;
+  onDragStart: (index: number, el: HTMLDivElement) => void;
+  onDragEnter: (index: number) => void;
+  onDragEnd: () => void;
 }
 
-export default function WorkspaceCard({ card, children, recordingId, onDragStart, onDragOver, onDragEnd }: Props) {
+export default function WorkspaceCard({
+  card, children, recordingId, index, isDragOver,
+  onDragStart, onDragEnter, onDragEnd,
+}: Props) {
   const toggleCardCollapse = useWorkspaceStore((s) => s.toggleCardCollapse);
   const renameCard = useWorkspaceStore((s) => s.renameCard);
   const deleteCard = useWorkspaceStore((s) => s.deleteCard);
 
+  const cardRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(card.title);
-  const [isDragging, setIsDragging] = useState(false);
 
   const isCollapsed = card.collapsed === 1;
   const isCustom = card.card_type === 'custom_task';
@@ -48,17 +53,14 @@ export default function WorkspaceCard({ card, children, recordingId, onDragStart
 
   return (
     <div
-      className={`rounded-card border bg-surface transition-all ${
-        isDragging ? 'border-accent/60 opacity-50 shadow-lg' : 'border-border'
+      ref={cardRef}
+      className={`rounded-card border bg-surface transition-all duration-150 ${
+        isDragOver
+          ? 'border-accent/60 shadow-[0_0_12px_rgba(91,141,239,0.2)] scale-[1.01]'
+          : 'border-border'
       }`}
-      style={{
-        gridColumn: `${card.grid_col + 1} / span ${card.grid_w}`,
-        gridRow: `${card.grid_row + 1} / span ${card.grid_h}`,
-      }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        onDragOver?.(card.id);
-      }}
+      onDragEnter={() => onDragEnter(index)}
+      onDragOver={(e) => e.preventDefault()}
     >
       {/* Header */}
       <div className="flex w-full items-center justify-between p-card transition-colors hover:bg-surface-2/50">
@@ -104,15 +106,10 @@ export default function WorkspaceCard({ card, children, recordingId, onDragStart
           <div
             draggable
             onDragStart={(e) => {
-              setIsDragging(true);
               e.dataTransfer.effectAllowed = 'move';
-              e.dataTransfer.setData('text/plain', String(card.id));
-              onDragStart?.(card.id);
+              if (cardRef.current) onDragStart(index, cardRef.current);
             }}
-            onDragEnd={() => {
-              setIsDragging(false);
-              onDragEnd?.();
-            }}
+            onDragEnd={onDragEnd}
             className="cursor-grab active:cursor-grabbing p-1 text-text-muted/40 hover:text-text-muted transition-colors"
             title="Drag to reposition"
           >
