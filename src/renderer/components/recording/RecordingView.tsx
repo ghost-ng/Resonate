@@ -12,6 +12,7 @@ import WaveformVisualizer from './WaveformVisualizer';
 import PostRecordingControls from './PostRecordingControls';
 import TranscriptCard from '../transcript/TranscriptCard';
 import SummaryCard from '../summary/SummaryCard';
+import CardWorkspace from '../workspace/CardWorkspace';
 
 export default function RecordingView() {
   const activeTabId = useRecordingStore((s) => s.activeTabId);
@@ -106,8 +107,8 @@ export default function RecordingView() {
 
   // Recording in progress (no tab yet — recording was started from empty state)
   if (!activeTabId && recordingPhase !== 'idle') {
-    const postTranscript = lastRecordingId ? transcripts[lastRecordingId] : null;
-    const postSummary = lastRecordingId ? summaries[lastRecordingId] : null;
+    const postTranscript = lastRecordingId ? transcripts[lastRecordingId] ?? null : null;
+    const postSummary = lastRecordingId ? summaries[lastRecordingId] ?? null : null;
 
     return (
       <div className="flex h-full flex-col overflow-y-auto">
@@ -117,8 +118,9 @@ export default function RecordingView() {
           </div>
           {recordingPhase === 'recording' && <WaveformVisualizer />}
           {recordingPhase === 'post-recording' && <PostRecordingControls />}
-          {postTranscript && <TranscriptCard transcript={postTranscript} />}
-          {postSummary && <SummaryCard summary={postSummary} />}
+          {lastRecordingId && (postTranscript || postSummary) && (
+            <CardWorkspace recordingId={lastRecordingId} transcript={postTranscript} summary={postSummary} />
+          )}
         </div>
       </div>
     );
@@ -151,8 +153,7 @@ export default function RecordingView() {
           <AudioPlayer audioPath={recording.audio_file_path} recordingId={recording.id} onStatusChange={handleStatusChange} />
         )}
 
-        {transcript && <TranscriptCard transcript={transcript} />}
-        {summary && <SummaryCard summary={summary} />}
+        <CardWorkspace recordingId={recording.id} transcript={transcript ?? null} summary={summary ?? null} />
       </div>
     </div>
   );
