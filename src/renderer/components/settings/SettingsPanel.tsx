@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useUiStore } from '../../stores/ui.store';
 import { useSettingsStore } from '../../stores/settings.store';
 import SttEngineConfig from './SttEngineConfig';
@@ -6,6 +6,7 @@ import AiEndpointConfig from './AiEndpointConfig';
 import PromptProfileEditor from './PromptProfileEditor';
 import AutoDetectSettings from './AutoDetectSettings';
 import AudioDeviceSettings from './AudioDeviceSettings';
+import StorageManagement from './StorageManagement';
 
 export default function SettingsPanel() {
   const close = useUiStore((s) => s.setSettingsPanelOpen);
@@ -53,6 +54,9 @@ export default function SettingsPanel() {
           </section>
           <section className="px-5 py-4">
             <AudioDeviceSettings />
+          </section>
+          <section className="px-5 py-4">
+            <StorageManagement />
           </section>
         </div>
       </div>
