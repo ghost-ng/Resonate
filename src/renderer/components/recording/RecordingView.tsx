@@ -28,29 +28,31 @@ export default function RecordingView() {
 
   // Fetch transcript/summary when a tab is opened
   useEffect(() => {
-    if (activeTabId && !transcripts[activeTabId]) {
+    if (activeTabId) {
       fetchTranscript(activeTabId);
-    }
-    if (activeTabId && !summaries[activeTabId]) {
       fetchSummary(activeTabId);
     }
-  }, [activeTabId, transcripts, summaries, fetchTranscript, fetchSummary]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTabId]);
 
   // Listen for recording status changes from main process
   useEffect(() => {
     const cleanup = window.electronAPI.on('recording:status-changed', (data) => {
       const { recordingId, status } = data;
       console.log(`[RecordingView] Status changed: recording=${recordingId} status=${status}`);
+      // Use getState() to avoid stale closure issues
+      const store = useRecordingStore.getState();
       if (status === 'complete' || status === 'summarizing') {
-        fetchTranscript(recordingId);
-        fetchRecordings();
+        store.fetchTranscript(recordingId);
+        store.fetchRecordings();
       }
       if (status === 'complete') {
-        fetchSummary(recordingId);
+        store.fetchSummary(recordingId);
       }
     });
     return cleanup;
-  }, [fetchTranscript, fetchSummary, fetchRecordings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Callback for AudioPlayer when transcription/summarization completes
   const handleStatusChange = useCallback((newStatus: string) => {
