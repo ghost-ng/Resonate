@@ -23,6 +23,7 @@ import { ProcessMonitorService } from './services/process-monitor.service';
 import { TrayService } from './services/tray.service';
 
 import { registerAllHandlers } from './ipc/handlers';
+import { DEFAULT_PROMPT_PROFILES } from '../shared/constants';
 
 // Vite globals injected by @electron-forge/plugin-vite
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -75,6 +76,19 @@ function bootstrap(): ServiceContainer {
   const processMonitor = new ProcessMonitorService(settings, (appName, processName) => {
     mainWindow?.webContents.send('auto-detect:app-found', { appName, processName });
   });
+  // Seed default prompt profiles if the table is empty
+  const existingProfiles = promptProfiles.findAll();
+  if (existingProfiles.length === 0) {
+    for (const profile of DEFAULT_PROMPT_PROFILES) {
+      promptProfiles.create({
+        name: profile.name,
+        system_prompt: profile.system_prompt,
+        user_prompt_template: profile.user_prompt_template,
+        is_default: profile.is_default,
+      });
+    }
+  }
+
   // TrayService needs the window — will be set after window creation
   const trayService = null as unknown as TrayService;
 

@@ -1,7 +1,7 @@
 import type { SettingsRepository } from '../db/repositories/settings.repo';
 import type { PromptProfileRepository } from '../db/repositories/prompt-profile.repo';
 import type { SafeStorageService } from './safe-storage.service';
-import { SETTINGS_KEYS } from '../../shared/types/settings.types';
+import { SETTINGS_KEYS, type AiProviderType } from '../../shared/types/settings.types';
 import {
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_USER_PROMPT_TEMPLATE,
@@ -148,45 +148,84 @@ export class AiSummaryService {
       ? this.safeStorage.decrypt(encryptedKey)
       : '';
 
+    // 3b. Determine provider type
+    const providerType: AiProviderType =
+      (this.settingsRepo.get(SETTINGS_KEYS.AI_PROVIDER_TYPE) as AiProviderType | undefined) ?? 'openai';
+
     // 4. Render user prompt template
     const userPrompt = renderTemplate(userTemplate, {
       transcript,
       ...metadata,
     });
 
-    // 5. POST to /v1/chat/completions
-    const url = `${endpoint.replace(/\/+$/, '')}/v1/chat/completions`;
+    // 5. POST to AI provider
+    const baseUrl = endpoint.replace(/\/+$/, '');
+    let content: string;
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        model,
-        temperature,
-        max_tokens: maxTokens,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-      }),
-    });
+    if (providerType === 'anthropic') {
+      // Anthropic Messages API
+      const url = `${baseUrl}/messages`;
 
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(
-        `AI endpoint returned ${response.status}: ${body}`
-      );
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`AI endpoint returned ${response.status}: ${body}`);
+      }
+
+      const json = (await response.json()) as {
+        content: { type: string; text: string }[];
+      };
+
+      content = json.content
+        ?.filter((block) => block.type === 'text')
+        .map((block) => block.text)
+        .join('\n') ?? '';
+    } else {
+      // OpenAI-compatible (openai or custom)
+      const url = `${baseUrl}/chat/completions`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          model,
+          temperature,
+          max_tokens: maxTokens,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`AI endpoint returned ${response.status}: ${body}`);
+      }
+
+      const json = (await response.json()) as {
+        choices: { message: { content: string } }[];
+      };
+
+      content = json.choices?.[0]?.message?.content ?? '';
     }
-
-    const json = (await response.json()) as {
-      choices: { message: { content: string } }[];
-    };
-
-    // 6. Parse response
-    const content = json.choices?.[0]?.message?.content ?? '';
 
     // 7. Extract action items
     const actionItems = extractActionItems(content);
