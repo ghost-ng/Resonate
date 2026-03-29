@@ -166,6 +166,11 @@ export class AiSummaryService {
 
     // 5. POST to AI provider
     const baseUrl = endpoint.replace(/\/+$/, '');
+
+    console.log('[AiSummary] System prompt:', systemPrompt.substring(0, 100) + '...');
+    console.log('[AiSummary] User prompt length:', userPrompt.length);
+    console.log('[AiSummary] Transcript:', transcript.substring(0, 200));
+    console.log('[AiSummary] Provider:', providerType, '| Model:', model, '| Endpoint:', baseUrl);
     let content: string;
 
     if (providerType === 'anthropic') {
