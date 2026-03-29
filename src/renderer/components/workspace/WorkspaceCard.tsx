@@ -6,15 +6,19 @@ interface Props {
   card: WorkspaceCardType;
   children: React.ReactNode;
   recordingId: number;
+  onDragStart?: (cardId: number) => void;
+  onDragOver?: (cardId: number) => void;
+  onDragEnd?: () => void;
 }
 
-export default function WorkspaceCard({ card, children, recordingId }: Props) {
+export default function WorkspaceCard({ card, children, recordingId, onDragStart, onDragOver, onDragEnd }: Props) {
   const toggleCardCollapse = useWorkspaceStore((s) => s.toggleCardCollapse);
   const renameCard = useWorkspaceStore((s) => s.renameCard);
   const deleteCard = useWorkspaceStore((s) => s.deleteCard);
 
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(card.title);
+  const [isDragging, setIsDragging] = useState(false);
 
   const isCollapsed = card.collapsed === 1;
   const isCustom = card.card_type === 'custom_task';
@@ -44,10 +48,16 @@ export default function WorkspaceCard({ card, children, recordingId }: Props) {
 
   return (
     <div
-      className="rounded-card border border-border bg-surface"
+      className={`rounded-card border bg-surface transition-all ${
+        isDragging ? 'border-accent/60 opacity-50 shadow-lg' : 'border-border'
+      }`}
       style={{
         gridColumn: `${card.grid_col + 1} / span ${card.grid_w}`,
         gridRow: `${card.grid_row + 1} / span ${card.grid_h}`,
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        onDragOver?.(card.id);
       }}
     >
       {/* Header */}
@@ -89,17 +99,45 @@ export default function WorkspaceCard({ card, children, recordingId }: Props) {
           )}
         </div>
 
-        {isCustom && (
-          <button
-            onClick={handleDelete}
-            className="shrink-0 ml-2 p-1 text-text-muted/50 hover:text-recording transition-colors"
-            aria-label="Delete card"
+        <div className="flex items-center gap-1 shrink-0 ml-2">
+          {/* Drag handle */}
+          <div
+            draggable
+            onDragStart={(e) => {
+              setIsDragging(true);
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', String(card.id));
+              onDragStart?.(card.id);
+            }}
+            onDragEnd={() => {
+              setIsDragging(false);
+              onDragEnd?.();
+            }}
+            className="cursor-grab active:cursor-grabbing p-1 text-text-muted/40 hover:text-text-muted transition-colors"
+            title="Drag to reposition"
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M2 2l8 8M10 2l-8 8" />
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <circle cx="5" cy="3" r="1.5" />
+              <circle cx="11" cy="3" r="1.5" />
+              <circle cx="5" cy="8" r="1.5" />
+              <circle cx="11" cy="8" r="1.5" />
+              <circle cx="5" cy="13" r="1.5" />
+              <circle cx="11" cy="13" r="1.5" />
             </svg>
-          </button>
-        )}
+          </div>
+
+          {isCustom && (
+            <button
+              onClick={handleDelete}
+              className="p-1 text-text-muted/40 hover:text-recording transition-colors"
+              aria-label="Delete card"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M2 2l8 8M10 2l-8 8" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Body */}

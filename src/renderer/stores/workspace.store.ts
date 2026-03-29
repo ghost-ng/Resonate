@@ -7,7 +7,7 @@ interface WorkspaceState {
   highlights: Record<number, TranscriptHighlight[]>;
 
   fetchCards: (recordingId: number) => Promise<void>;
-  updateCard: (cardId: number, updates: Partial<Pick<WorkspaceCard, 'grid_col' | 'grid_row' | 'grid_w' | 'grid_h' | 'collapsed' | 'sort_order'>>) => Promise<void>;
+  updateCard: (cardId: number, updates: Partial<Pick<WorkspaceCard, 'grid_col' | 'grid_row' | 'grid_w' | 'grid_h' | 'collapsed' | 'sort_order'>>, recordingId: number) => Promise<void>;
   addCustomCard: (recordingId: number, title: string) => Promise<void>;
   renameCard: (cardId: number, title: string, recordingId: number) => Promise<void>;
   deleteCard: (cardId: number, recordingId: number) => Promise<void>;
@@ -40,9 +40,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
   },
 
-  updateCard: async (cardId, updates) => {
+  updateCard: async (cardId, updates, recordingId) => {
     try {
       await window.electronAPI.invoke('workspace-card:update', { id: cardId, ...updates });
+      // Update local state without re-fetching to avoid loops
+      const current = get().cards[recordingId] ?? [];
+      set({
+        cards: {
+          ...get().cards,
+          [recordingId]: current.map((c) =>
+            c.id === cardId ? { ...c, ...updates } : c
+          ),
+        },
+      });
     } catch (err) {
       console.error('[workspace] updateCard failed:', err);
     }
@@ -86,9 +96,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   toggleCardCollapse: async (cardId, collapsed, recordingId) => {
+    const colVal = collapsed ? 1 : 0;
+    // Update local state immediately for responsiveness
+    const current = get().cards[recordingId] ?? [];
+    set({
+      cards: {
+        ...get().cards,
+        [recordingId]: current.map((c) =>
+          c.id === cardId ? { ...c, collapsed: colVal } : c
+        ),
+      },
+    });
     try {
-      await window.electronAPI.invoke('workspace-card:update', { id: cardId, collapsed: collapsed ? 1 : 0 });
-      await get().fetchCards(recordingId);
+      await window.electronAPI.invoke('workspace-card:update', { id: cardId, collapsed: colVal });
     } catch (err) {
       console.error('[workspace] toggleCardCollapse failed:', err);
     }
