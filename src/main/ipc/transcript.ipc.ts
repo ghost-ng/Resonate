@@ -39,10 +39,13 @@ export function registerTranscriptHandlers(services: ServiceContainer): void {
       // Build full text from segments
       const fullText = segments.map((s) => `${s.speaker}: ${s.text}`).join('\n');
 
+      // Determine which engine was actually used
+      const engineUsed = args.engine ?? services.settings.get('stt_engine') ?? 'whisper';
+
       // Save transcript and segments
       transcripts.create(
         args.recordingId,
-        args.engine ?? 'cloud',
+        engineUsed,
         fullText,
         segments.map((s) => ({
           speaker: s.speaker,
