@@ -87,15 +87,34 @@ export default function CardWorkspace({ recordingId, transcript, summary }: Prop
     setDragIndex(null);
     setOverIndex(null);
 
-    // Persist the new order: assign grid positions based on array order
+    // Persist the new order: assign sort_order based on array position
     cards.forEach((card, i) => {
-      const col = i % 2;
-      const row = Math.floor(i / 2);
-      if (card.grid_col !== col || card.grid_row !== row) {
-        updateCard(card.id, { grid_col: col, grid_row: row, grid_w: 1, grid_h: 1 }, recordingId);
+      if (card.sort_order !== i) {
+        updateCard(card.id, { sort_order: i }, recordingId);
       }
     });
   }, [cards, updateCard, recordingId]);
+
+  const addTaskToFirstCustomCard = useCallback(async (text: string) => {
+    const currentCards = useWorkspaceStore.getState().cards[recordingId] ?? [];
+    const customCards = currentCards.filter((c) => c.card_type === 'custom_task');
+    let targetCardId: number;
+    if (customCards.length > 0) {
+      targetCardId = customCards[0].id;
+    } else {
+      await useWorkspaceStore.getState().addCustomCard(recordingId, 'Tasks');
+      const updatedCards = useWorkspaceStore.getState().cards[recordingId] ?? [];
+      const newCustom = updatedCards.find((c) => c.card_type === 'custom_task');
+      if (!newCustom) return;
+      targetCardId = newCustom.id;
+    }
+    await useWorkspaceStore.getState().addTask(targetCardId, text);
+  }, [recordingId]);
+
+  const handleWidthToggle = useCallback((card: CardType) => {
+    const newW = card.grid_w >= 2 ? 1 : 2;
+    updateCard(card.id, { grid_w: newW }, recordingId);
+  }, [updateCard, recordingId]);
 
   const renderCardContent = (card: CardType) => {
     switch (card.card_type) {
@@ -105,10 +124,11 @@ export default function CardWorkspace({ recordingId, transcript, summary }: Prop
             transcript={transcript}
             highlights={highlights}
             recordingId={recordingId}
+            onAddTask={addTaskToFirstCustomCard}
           />
         );
       case 'summary':
-        return <SummaryCardContent summary={summary} />;
+        return <SummaryCardContent summary={summary} onAddTask={addTaskToFirstCustomCard} />;
       case 'action_items':
         return <ActionItemsCardContent items={summary?.action_items ?? []} />;
       case 'custom_task':
@@ -120,13 +140,7 @@ export default function CardWorkspace({ recordingId, transcript, summary }: Prop
 
   return (
     <div>
-      <div
-        className="grid gap-[10px]"
-        style={{
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gridAutoRows: 'minmax(120px, auto)',
-        }}
-      >
+      <div className="flex flex-wrap gap-[10px]">
         {cards.map((card, index) => (
           <WorkspaceCard
             key={card.id}
@@ -137,6 +151,11 @@ export default function CardWorkspace({ recordingId, transcript, summary }: Prop
             onDragStart={handleDragStart}
             onDragEnter={handleDragEnter}
             onDragEnd={handleDragEnd}
+            onWidthToggle={() => handleWidthToggle(card)}
+            style={{
+              flex: card.grid_w >= 2 ? '0 0 100%' : '0 0 calc(50% - 5px)',
+              minHeight: '120px',
+            }}
           >
             {renderCardContent(card)}
           </WorkspaceCard>

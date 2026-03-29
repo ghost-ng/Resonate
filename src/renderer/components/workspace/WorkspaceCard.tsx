@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import type { CSSProperties } from 'react';
 import type { WorkspaceCard as WorkspaceCardType } from '../../../shared/types/database.types';
 import { useWorkspaceStore } from '../../stores/workspace.store';
 
@@ -11,22 +12,46 @@ interface Props {
   onDragStart: (index: number, el: HTMLDivElement) => void;
   onDragEnter: (index: number) => void;
   onDragEnd: () => void;
+  onWidthToggle: () => void;
+  style?: CSSProperties;
 }
 
 export default function WorkspaceCard({
   card, children, recordingId, index, isDragOver,
-  onDragStart, onDragEnter, onDragEnd,
+  onDragStart, onDragEnter, onDragEnd, onWidthToggle, style,
 }: Props) {
   const toggleCardCollapse = useWorkspaceStore((s) => s.toggleCardCollapse);
   const renameCard = useWorkspaceStore((s) => s.renameCard);
   const deleteCard = useWorkspaceStore((s) => s.deleteCard);
 
   const cardRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(card.title);
+  const [bodyHeight, setBodyHeight] = useState(400);
 
   const isCollapsed = card.collapsed === 1;
   const isCustom = card.card_type === 'custom_task';
+
+  const handleResizePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const startHeight = bodyRef.current?.offsetHeight ?? bodyHeight;
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+
+    const onMove = (ev: PointerEvent) => {
+      const delta = ev.clientY - startY;
+      setBodyHeight(Math.max(100, startHeight + delta));
+    };
+    const onUp = () => {
+      target.removeEventListener('pointermove', onMove);
+      target.removeEventListener('pointerup', onUp);
+    };
+    target.addEventListener('pointermove', onMove);
+    target.addEventListener('pointerup', onUp);
+  }, [bodyHeight]);
 
   const handleToggleCollapse = useCallback(() => {
     toggleCardCollapse(card.id, !isCollapsed, recordingId);
@@ -59,6 +84,7 @@ export default function WorkspaceCard({
           ? 'border-accent/60 shadow-[0_0_12px_rgba(91,141,239,0.2)] scale-[1.01]'
           : 'border-border'
       }`}
+      style={style}
       onDragEnter={() => onDragEnter(index)}
       onDragOver={(e) => e.preventDefault()}
     >
@@ -102,6 +128,28 @@ export default function WorkspaceCard({
         </div>
 
         <div className="flex items-center gap-1 shrink-0 ml-2">
+          {/* Width toggle */}
+          <button
+            onClick={onWidthToggle}
+            className="p-1 text-text-muted/40 hover:text-text-muted transition-colors"
+            title={card.grid_w >= 2 ? 'Half width' : 'Full width'}
+            aria-label={card.grid_w >= 2 ? 'Half width' : 'Full width'}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              {card.grid_w >= 2 ? (
+                <>
+                  <path d="M11 4l-3 4 3 4" />
+                  <path d="M5 4l3 4-3 4" />
+                </>
+              ) : (
+                <>
+                  <path d="M4 4l3 4-3 4" />
+                  <path d="M12 4l-3 4 3 4" />
+                </>
+              )}
+            </svg>
+          </button>
+
           {/* Drag handle */}
           <div
             draggable
@@ -139,8 +187,25 @@ export default function WorkspaceCard({
 
       {/* Body */}
       {!isCollapsed && (
-        <div className="max-h-[400px] overflow-y-auto border-t border-border/50 px-card pb-card">
-          {children}
+        <div className="relative border-t border-border/50">
+          <div
+            ref={bodyRef}
+            className="overflow-y-auto px-card pb-card"
+            style={{ maxHeight: bodyHeight }}
+          >
+            {children}
+          </div>
+          {/* Vertical resize handle */}
+          <div
+            onPointerDown={handleResizePointerDown}
+            className="flex h-[10px] cursor-row-resize items-center justify-center hover:bg-surface-2/60 transition-colors"
+            title="Drag to resize height"
+          >
+            <svg width="24" height="4" viewBox="0 0 24 4" className="text-text-muted/30">
+              <line x1="4" y1="1" x2="20" y2="1" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+              <line x1="4" y1="3" x2="20" y2="3" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+            </svg>
+          </div>
         </div>
       )}
     </div>
