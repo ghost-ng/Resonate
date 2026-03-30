@@ -24,11 +24,16 @@ jobs:
       - name: Install CMake
         uses: lukka/get-cmake@latest
 
-      - name: Install build tools
-        run: npm install -g cmake-js
+      - name: Install global build tools
+        run: |
+          npm install -g cmake-js
+          npm install -g @electron/rebuild
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies (skip native build)
+        run: npm ci --ignore-scripts
+
+      - name: Rebuild native modules for Electron
+        run: npx electron-rebuild
         env:
           npm_config_cmake_js_G: "Visual Studio 17 2022"
 
