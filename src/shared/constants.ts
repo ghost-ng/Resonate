@@ -1,5 +1,5 @@
 export const APP_NAME = 'Resonate';
-export const APP_VERSION = '0.1.2';
+export const APP_VERSION = '0.1.3';
 export const DB_FILENAME = 'resonate.db';
 export const AUDIO_SAMPLE_RATE = 16000;
 export const AUDIO_CHANNELS = 2;

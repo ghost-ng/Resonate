@@ -64,11 +64,11 @@ jobs:
           npm install -g cmake-js
           npm install -g @electron/rebuild
 
-      - name: Install dependencies (skip native build)
+      - name: Install dependencies (skip native scripts)
         run: npm ci --ignore-scripts
 
       - name: Rebuild native modules for Electron
-        run: npx electron-rebuild
+        run: npx @electron/rebuild
         env:
           npm_config_cmake_js_G: "Visual Studio 17 2022"
 
