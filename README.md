@@ -50,11 +50,9 @@ npm install
 npm start
 ```
 
-`npm install` automatically downloads [whisper.cpp](https://github.com/ggerganov/whisper.cpp) binaries and the `base.en` model (~150 MB). To re-download or update manually:
+> **Note:** This repo uses [Git LFS](https://git-lfs.com/) for the Whisper model file (~142 MB). Install Git LFS before cloning: `git lfs install`
 
-```bash
-npm run setup:whisper
-```
+Whisper binaries and the `base.en` model are bundled in the repo under `resources/whisper/` — no downloads needed. Works fully offline.
 
 ### AI Configuration
 
@@ -99,12 +97,12 @@ npx electron-rebuild
 
 ### Packaging Checklist
 
-All external dependencies are handled automatically:
+All external dependencies are bundled in the repo:
 
-1. `npm install` downloads whisper.cpp binary and base.en model via `postinstall`
+1. Whisper binaries and model are in `resources/whisper/` (tracked via Git LFS)
 2. `resources/whisper/` is bundled into the app via `extraResource` in forge config
 3. Native modules (`better-sqlite3`, `native-recorder-nodejs`) are rebuilt for Electron
-4. Run `npm run make` to create the installer
+4. Run `npm run make` to create the installer — works fully offline
 
 ## Project Structure
 

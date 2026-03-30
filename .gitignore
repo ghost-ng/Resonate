@@ -121,8 +121,8 @@ recordings/
 *.db-journal
 *.db-wal
 
-# Whisper models (large binaries)
-resources/whisper/models/
+# Whisper models downloaded by user (not the bundled one)
+# resources/whisper/models/ is tracked via Git LFS
 
 # Superpowers docs (dev only)
 docs/superpowers/
