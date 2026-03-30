@@ -60,6 +60,7 @@ export default function RecordButton() {
     <>
       <button
         onClick={handleClick}
+        data-tutorial="record-button"
         className="flex items-center gap-2 rounded-full bg-recording px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-recording/90 hover:shadow-[0_0_20px_rgba(255,59,59,0.3)]"
       >
         <span className="h-3 w-3 rounded-full bg-white/90" />

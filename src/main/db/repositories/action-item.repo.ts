@@ -12,4 +12,26 @@ export class ActionItemRepository {
       .prepare('SELECT * FROM action_items WHERE id = ?')
       .get(id) as ActionItem | undefined;
   }
+
+  update(id: number, fields: { text?: string; assignee?: string | null }): ActionItem | undefined {
+    const sets: string[] = [];
+    const values: unknown[] = [];
+
+    if (fields.text !== undefined) {
+      sets.push('text = ?');
+      values.push(fields.text);
+    }
+    if (fields.assignee !== undefined) {
+      sets.push('assignee = ?');
+      values.push(fields.assignee);
+    }
+
+    if (sets.length === 0) {
+      return this.db.prepare('SELECT * FROM action_items WHERE id = ?').get(id) as ActionItem | undefined;
+    }
+
+    values.push(id);
+    this.db.prepare(`UPDATE action_items SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+    return this.db.prepare('SELECT * FROM action_items WHERE id = ?').get(id) as ActionItem | undefined;
+  }
 }

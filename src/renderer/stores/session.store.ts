@@ -57,6 +57,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     try {
       const result = await window.electronAPI.invoke('recording:stop-capture', undefined);
+      // Update recording status to 'complete' (audio captured, ready for transcription)
+      const recId = get().lastRecordingId;
+      if (recId) {
+        await window.electronAPI.invoke('recording:update', { id: recId, status: 'complete' });
+      }
       set({
         isRecording: false,
         recordingPhase: 'post-recording',

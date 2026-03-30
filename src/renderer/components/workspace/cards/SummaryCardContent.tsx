@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { SummaryWithActions } from '../../../../shared/types/ipc.types';
 import MarkdownRenderer from '../../summary/MarkdownRenderer';
+import { useCardSearch } from '../CardSearchContext';
 
 interface Props {
   summary: SummaryWithActions | null;
@@ -15,7 +16,17 @@ interface MenuState {
 }
 
 export default function SummaryCardContent({ summary, onAddTask }: Props) {
+  const { query, setTotalMatches } = useCardSearch();
   const [menu, setMenu] = useState<MenuState>({ visible: false, x: 0, y: 0, selectedText: '' });
+
+  // Count matches in summary content
+  useEffect(() => {
+    if (!query || !summary?.content) { setTotalMatches(0); return; }
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'gi');
+    const matches = summary.content.match(regex);
+    setTotalMatches(matches?.length ?? 0);
+  }, [query, summary?.content, setTotalMatches]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     const selected = window.getSelection()?.toString().trim() ?? '';

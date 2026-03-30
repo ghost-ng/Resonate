@@ -78,7 +78,13 @@ export function extractActionItems(markdown: string): ActionItem[] {
     if (inActionItemsSection) {
       const listMatch = trimmed.match(/^[-*]\s+(.+)$/);
       if (listMatch) {
-        items.push(parseActionText(listMatch[1]));
+        const text = listMatch[1].trim();
+        // Skip section headers / participant labels disguised as list items
+        // e.g. "- Unspecified participant (the one receiving the to-do list):"
+        // e.g. "- **Section Name:**"
+        if (/:\s*$/.test(text) && !/\b(by|before|after|until|on)\b/i.test(text)) continue;
+        if (/^\*\*[^*]+\*\*:?\s*$/.test(text)) continue;
+        items.push(parseActionText(text));
       }
     }
   }
@@ -89,6 +95,17 @@ export function extractActionItems(markdown: string): ActionItem[] {
 function parseActionText(raw: string): ActionItem {
   let text = raw.trim();
   let assignee: string | null = null;
+
+  // Strip leading speaker prefix like "Speaker 1 (Lydia):" or "**Speaker 1:**"
+  const speakerPrefix = text.match(/^(?:\*\*)?(?:Speaker\s*\d+)(?:\s*\([^)]+\))?(?:\*\*)?:\s*/i);
+  if (speakerPrefix) {
+    // Extract the name from parentheses as assignee
+    const nameInParens = speakerPrefix[0].match(/\(([^)]+)\)/);
+    if (nameInParens) {
+      assignee = nameInParens[1].trim();
+    }
+    text = text.slice(speakerPrefix[0].length).trim();
+  }
 
   // Check for @Name pattern
   const atMatch = text.match(/@(\w+)/);
@@ -113,6 +130,108 @@ export class AiSummaryService {
     private promptProfileRepo: PromptProfileRepository,
     private safeStorage: SafeStorageService
   ) {}
+
+  /**
+   * Call an OpenAI-compatible endpoint with automatic parameter fallback.
+   * Some models (e.g. o1, o3) reject `max_tokens` and require `max_completion_tokens`.
+   * On a 400 error mentioning an unsupported parameter, we retry without it or
+   * with the alternative name.
+   */
+  private async callOpenAICompatible(
+    baseUrl: string,
+    apiKey: string,
+    model: string,
+    temperature: number,
+    maxTokens: number,
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<string> {
+    const url = `${baseUrl}/chat/completions`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+    };
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ];
+
+    // Build the initial body with max_tokens
+    const body: Record<string, unknown> = {
+      model,
+      temperature,
+      max_tokens: maxTokens,
+      messages,
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (response.ok) {
+      const json = (await response.json()) as {
+        choices: { message: { content: string } }[];
+      };
+      return json.choices?.[0]?.message?.content ?? '';
+    }
+
+    // On 400, check if it's an unsupported parameter issue and retry
+    if (response.status === 400) {
+      const errorBody = await response.text();
+
+      // Check for unsupported parameter hints in the error
+      if (errorBody.includes('unsupported_parameter') || errorBody.includes('max_tokens')) {
+        console.log('[AiSummary] Retrying without max_tokens, using max_completion_tokens instead');
+        delete body.max_tokens;
+        body.max_completion_tokens = maxTokens;
+
+        const retryResponse = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        });
+
+        if (retryResponse.ok) {
+          const json = (await retryResponse.json()) as {
+            choices: { message: { content: string } }[];
+          };
+          return json.choices?.[0]?.message?.content ?? '';
+        }
+
+        // If still failing, try with neither token limit parameter
+        if (retryResponse.status === 400) {
+          console.log('[AiSummary] Retrying without any token limit parameter');
+          delete body.max_completion_tokens;
+
+          const fallbackResponse = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+          });
+
+          if (!fallbackResponse.ok) {
+            const fallbackBody = await fallbackResponse.text();
+            throw new Error(`AI endpoint returned ${fallbackResponse.status}: ${fallbackBody}`);
+          }
+
+          const json = (await fallbackResponse.json()) as {
+            choices: { message: { content: string } }[];
+          };
+          return json.choices?.[0]?.message?.content ?? '';
+        }
+
+        const retryBody = await retryResponse.text();
+        throw new Error(`AI endpoint returned ${retryResponse.status}: ${retryBody}`);
+      }
+
+      throw new Error(`AI endpoint returned ${response.status}: ${errorBody}`);
+    }
+
+    const body2 = await response.text();
+    throw new Error(`AI endpoint returned ${response.status}: ${body2}`);
+  }
 
   async generateSummary(
     transcript: string,
@@ -207,35 +326,9 @@ export class AiSummaryService {
         .join('\n') ?? '';
     } else {
       // OpenAI-compatible (openai or custom)
-      const url = `${baseUrl}/chat/completions`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-        },
-        body: JSON.stringify({
-          model,
-          temperature,
-          max_tokens: maxTokens,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-        }),
-      });
-
-      if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`AI endpoint returned ${response.status}: ${body}`);
-      }
-
-      const json = (await response.json()) as {
-        choices: { message: { content: string } }[];
-      };
-
-      content = json.choices?.[0]?.message?.content ?? '';
+      content = await this.callOpenAICompatible(
+        baseUrl, apiKey, model, temperature, maxTokens, systemPrompt, userPrompt
+      );
     }
 
     // 6b. Strip code fences if the AI wrapped its response in them

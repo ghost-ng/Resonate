@@ -55,6 +55,7 @@ export class AudioCaptureService {
       JSON.stringify({ outputFile: this.audioFilePath, logFile })
     ], {
       stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+      execArgv: ['--force-node-api-uncaught-exceptions-policy=true'],
     });
 
     this.worker.on('message', (msg: any) => {

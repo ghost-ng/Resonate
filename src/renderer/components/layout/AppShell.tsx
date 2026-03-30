@@ -15,6 +15,7 @@ import Sidebar from './Sidebar';
 import TabBar from './TabBar';
 import MainContent from './MainContent';
 import StatusBar from './StatusBar';
+import TutorialOverlay from '../tutorial/TutorialOverlay';
 
 export default function AppShell() {
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
@@ -80,8 +81,9 @@ export default function AppShell() {
     : null;
 
   // Rename modal state
-  const [renameTarget, setRenameTarget] = useState<{ type: 'notebook' | 'recording'; id: number; currentName: string } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<{ type: 'notebook' | 'recording'; id: number; currentName: string; currentIcon?: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [renameIcon, setRenameIcon] = useState('');
 
   // New notebook modal state
   const [showNewNotebook, setShowNewNotebook] = useState(false);
@@ -93,8 +95,8 @@ export default function AppShell() {
       setNewNotebookName('');
       setShowNewNotebook(true);
     };
-    window.addEventListener('yourecord:new-notebook', handler);
-    return () => window.removeEventListener('yourecord:new-notebook', handler);
+    window.addEventListener('resonate:new-notebook', handler);
+    return () => window.removeEventListener('resonate:new-notebook', handler);
   }, []);
 
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => {
@@ -117,10 +119,11 @@ export default function AppShell() {
       const nb = useNotebookStore.getState().notebooks.find((n) => n.id === id);
       return [
         {
-          label: 'Rename',
+          label: 'Edit',
           action: () => {
             setRenameValue(nb?.name ?? '');
-            setRenameTarget({ type: 'notebook', id, currentName: nb?.name ?? '' });
+            setRenameIcon(nb?.icon ?? '📁');
+            setRenameTarget({ type: 'notebook', id, currentName: nb?.name ?? '', currentIcon: nb?.icon ?? '📁' });
           },
         },
         { label: '', action: () => {}, separator: true },
@@ -190,12 +193,12 @@ export default function AppShell() {
         return;
       }
       setRenameError('');
-      updateNotebook(renameTarget.id, { name: renameValue.trim() });
+      updateNotebook(renameTarget.id, { name: renameValue.trim(), icon: renameIcon || undefined });
     } else if (renameTarget.type === 'recording') {
       updateRecording(renameTarget.id, { title: renameValue.trim() });
     }
     setRenameTarget(null);
-  }, [renameTarget, renameValue, updateNotebook, updateRecording]);
+  }, [renameTarget, renameValue, renameIcon, updateNotebook, updateRecording]);
 
   const [notebookError, setNotebookError] = useState('');
 
@@ -282,10 +285,10 @@ export default function AppShell() {
         </p>
       </Modal>
 
-      {/* Rename Modal */}
+      {/* Rename / Edit Modal */}
       <Modal
         isOpen={renameTarget !== null}
-        title={`Rename ${renameTarget?.type === 'notebook' ? 'Notebook' : 'Recording'}`}
+        title={renameTarget?.type === 'notebook' ? 'Edit Notebook' : 'Rename Recording'}
         onClose={() => setRenameTarget(null)}
         footer={
           <>
@@ -299,20 +302,43 @@ export default function AppShell() {
               className="rounded-lg bg-accent px-4 py-2 text-sm text-white hover:opacity-90"
               onClick={handleConfirmRename}
             >
-              Rename
+              Save
             </button>
           </>
         }
       >
-        <input
-          type="text"
-          value={renameValue}
-          onChange={(e) => setRenameValue(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleConfirmRename()}
-          autoFocus
-          className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none focus:border-accent"
-          placeholder="Enter new name..."
-        />
+        {renameTarget?.type === 'notebook' && (
+          <div className="mb-3">
+            <label className="mb-1.5 block text-xs font-medium text-text-muted">Icon</label>
+            <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto rounded-lg border border-border/50 p-1.5">
+              {['📁', '📂', '📒', '📓', '📔', '📕', '📗', '📘', '📙', '📝', '📋', '📎', '📌', '📍', '🗂️', '🗃️', '🗄️', '🗒️', '🗓️', '📊', '📈', '📉', '💼', '🎓', '🎯', '🎵', '🎙️', '🎧', '🎬', '🏢', '🏠', '💡', '🔬', '🔭', '🚀', '💬', '💭', '⭐', '🌟', '❤️', '🔥', '⚡', '🎨', '🖌️', '✏️', '🖊️', '🔧', '⚙️', '🛠️', '🔑', '🔒', '🔔', '📞', '📱', '💻', '🖥️', '🌐', '☁️', '🧪', '🧬', '🩺', '💊', '🏋️', '🧘', '🎮', '🎲', '♟️', '🏆', '🥇', '📷', '🎥', '🔍', '👤', '👥', '🤝', '💰', '🏦'].map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => setRenameIcon(emoji)}
+                  className={`flex h-7 w-7 items-center justify-center rounded text-sm transition-colors ${
+                    renameIcon === emoji
+                      ? 'bg-accent/20 ring-2 ring-accent'
+                      : 'hover:bg-surface-2'
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-text-muted">Name</label>
+          <input
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleConfirmRename()}
+            autoFocus
+            className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none focus:border-accent"
+            placeholder="Enter new name..."
+          />
+        </div>
         {renameError && <p className="mt-2 text-xs text-danger">{renameError}</p>}
       </Modal>
 
@@ -358,6 +384,9 @@ export default function AppShell() {
           </div>
         ) : null}
       </DragOverlay>
+
+      {/* Tutorial walkthrough overlay */}
+      <TutorialOverlay />
     </div>
     </DndContext>
   );

@@ -7,7 +7,7 @@ let db: Database.Database | null = null;
 export function getDatabase(): Database.Database {
   if (db) return db;
 
-  const dbPath = path.join(app.getPath('userData'), 'yourecord.db');
+  const dbPath = path.join(app.getPath('userData'), 'resonate.db');
   db = createDatabase(dbPath);
   return db;
 }

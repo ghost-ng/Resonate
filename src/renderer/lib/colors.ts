@@ -1,6 +1,6 @@
 /** Speaker color palette — 8 distinct colors for differentiating speakers */
 export const SPEAKER_COLORS = [
-  '#5b8def', // blue
+  '#5B3DF5', // purple (brand accent)
   '#f06292', // pink
   '#4db6ac', // teal
   '#ffb74d', // orange

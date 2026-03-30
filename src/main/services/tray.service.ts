@@ -16,7 +16,7 @@ export class TrayService {
     // Generate a simple 16x16 colored square icon
     const icon = this.createIcon();
     this.tray = new Tray(icon);
-    this.tray.setToolTip('youRecord');
+    this.tray.setToolTip('Resonate');
 
     this.buildMenu();
 
@@ -37,7 +37,7 @@ export class TrayService {
   updateRecordingState(isRecording: boolean): void {
     this.isRecording = isRecording;
     if (this.tray) {
-      this.tray.setToolTip(isRecording ? 'youRecord — Recording...' : 'youRecord');
+      this.tray.setToolTip(isRecording ? 'Resonate — Recording...' : 'Resonate');
       this.tray.setImage(this.createIcon());
       this.buildMenu();
     }
@@ -58,7 +58,7 @@ export class TrayService {
 
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: 'Show youRecord',
+        label: 'Show Resonate',
         click: () => {
           this.mainWindow.show();
           this.mainWindow.focus();

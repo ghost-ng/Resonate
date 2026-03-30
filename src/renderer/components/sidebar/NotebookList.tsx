@@ -32,7 +32,7 @@ export default function NotebookList() {
   );
 
   return (
-    <div className="flex flex-col gap-0.5 px-2">
+    <div className="flex flex-col gap-0.5 px-2" data-tutorial="notebook-list">
       <div className="px-1 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-text-muted/60">
         Notebooks
       </div>

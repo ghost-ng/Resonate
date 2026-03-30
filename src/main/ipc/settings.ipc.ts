@@ -1,4 +1,5 @@
-import { ipcMain, app } from 'electron';
+import { ipcMain, app, dialog, BrowserWindow } from 'electron';
+import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { ServiceContainer } from '../index';
@@ -160,9 +161,76 @@ export function registerSettingsHandlers(services: ServiceContainer): void {
       }
     }
 
-    const dbPath = path.join(app.getPath('userData'), 'yourecord.db');
+    const dbPath = path.join(app.getPath('userData'), 'resonate.db');
     const dbSizeBytes = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0;
 
     return { dbSizeBytes, audioSizeBytes, recordingCount, audioFileCount };
+  });
+
+  // Browse for an executable file
+  ipcMain.handle('app:browse-exe', async () => {
+    const win = BrowserWindow.getFocusedWindow();
+    const result = await dialog.showOpenDialog(win!, {
+      title: 'Select Executable',
+      filters: [
+        { name: 'Executables', extensions: ['exe', 'app', 'bat', 'cmd', 'sh'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const fullPath = result.filePaths[0];
+    return {
+      path: fullPath,
+      name: path.basename(fullPath),
+    };
+  });
+
+  // List running processes with their executable paths
+  ipcMain.handle('app:list-processes', () => {
+    try {
+      if (process.platform === 'win32') {
+        const output = execSync(
+          'wmic process get Name,ExecutablePath /FORMAT:CSV',
+          { encoding: 'utf-8', timeout: 10000 }
+        );
+        const seen = new Map<string, string>();
+        for (const line of output.split('\n')) {
+          const parts = line.trim().split(',');
+          if (parts.length < 3) continue;
+          const exePath = parts[1]?.trim();
+          const name = parts[2]?.trim();
+          if (!name || name === 'Name' || !exePath) continue;
+          if (!seen.has(name.toLowerCase())) {
+            seen.set(name.toLowerCase(), exePath);
+          }
+        }
+        return Array.from(seen.entries())
+          .map(([, exePath]) => ({
+            name: path.basename(exePath, path.extname(exePath)),
+            exe: path.basename(exePath),
+            path: exePath,
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+      } else {
+        // macOS / Linux
+        const output = execSync('ps -eo comm= | sort -u', {
+          encoding: 'utf-8',
+          timeout: 10000,
+        });
+        return output
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .map((name) => ({
+            name: path.basename(name),
+            exe: path.basename(name),
+            path: name,
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+      }
+    } catch {
+      return [];
+    }
   });
 }

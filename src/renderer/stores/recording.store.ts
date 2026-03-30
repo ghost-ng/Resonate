@@ -17,6 +17,8 @@ interface RecordingState {
   updateRecording: (id: number, updates: { title?: string; notebook_id?: number | null }) => Promise<void>;
   moveToNotebook: (recordingId: number, notebookId: number) => Promise<void>;
   deleteRecording: (id: number) => Promise<void>;
+  playbackTimeMs: number | undefined;
+  setPlaybackTimeMs: (ms: number | undefined) => void;
 }
 
 export const useRecordingStore = create<RecordingState>((set, get) => ({
@@ -25,6 +27,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   activeTabId: null,
   transcripts: {},
   summaries: {},
+  playbackTimeMs: undefined,
+  setPlaybackTimeMs: (ms) => set({ playbackTimeMs: ms }),
 
   fetchRecordings: async (notebookId, search) => {
     try {

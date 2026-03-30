@@ -2,9 +2,13 @@ import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useSessionStore } from '../../stores/session.store';
 import { useRecordingStore } from '../../stores/recording.store';
 import { useSettingsStore } from '../../stores/settings.store';
+import { useWorkspaceStore } from '../../stores/workspace.store';
 import { formatTimestamp } from '../../lib/formatters';
 import Dropdown from '../shared/Dropdown';
 import type { DropdownItem } from '../shared/Dropdown';
+import SplitButton from '../shared/SplitButton';
+import type { SplitButtonItem } from '../shared/SplitButton';
+import Modal from '../shared/Modal';
 
 export default function PostRecordingControls() {
   const audioPath = useSessionStore((s) => s.lastRecordingAudioPath);
@@ -95,6 +99,7 @@ export default function PostRecordingControls() {
   const fetchTranscript = useRecordingStore((s) => s.fetchTranscript);
   const fetchSummary = useRecordingStore((s) => s.fetchSummary);
 
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [transcribeStatus, setTranscribeStatus] = useState('');
 
   const handleTranscribe = async () => {
@@ -109,11 +114,16 @@ export default function PostRecordingControls() {
     }
   };
 
-  const handleSendToAi = async (profileId?: number) => {
+  const addCard = useWorkspaceStore((s) => s.addCard);
+  const findDuplicate = useWorkspaceStore((s) => s.findDuplicateCard);
+  const [overwriteConfirm, setOverwriteConfirm] = useState<{ profileId?: number; profileName?: string } | null>(null);
+
+  const executeSendToAi = async (profileId?: number, profileName?: string) => {
     if (!recordingId) return;
     setTranscribeStatus('Generating summary...');
     try {
-      await window.electronAPI.invoke('summary:generate', { recordingId, profileId });
+      const name = profileName || 'Summary';
+      await addCard(recordingId, 'summary', name, profileId);
       setTranscribeStatus('Summary complete!');
       fetchSummary(recordingId);
     } catch (err: any) {
@@ -121,15 +131,28 @@ export default function PostRecordingControls() {
     }
   };
 
+  const handleSendToAi = async (profileId?: number, profileName?: string) => {
+    if (!recordingId) return;
+    const name = profileName || 'Summary';
+    const dup = findDuplicate(recordingId, 'summary', name);
+    if (dup) {
+      setOverwriteConfirm({ profileId, profileName });
+    } else {
+      executeSendToAi(profileId, profileName);
+    }
+  };
+
   const promptProfiles = useSettingsStore((s) => s.promptProfiles);
 
-  const aiProfileItems = useMemo<DropdownItem[]>(() => {
-    if (promptProfiles.length === 0) {
-      return [{ label: 'No profiles — configure in Settings', action: () => {} }];
-    }
+  const defaultProfile = useMemo(() =>
+    promptProfiles.find((p) => p.is_default === 1) ?? promptProfiles[0],
+    [promptProfiles]
+  );
+
+  const aiProfileItems = useMemo<SplitButtonItem[]>(() => {
     return promptProfiles.map((p) => ({
       label: `${p.is_default ? '● ' : ''}${p.name}`,
-      action: () => handleSendToAi(p.id),
+      action: () => handleSendToAi(p.id, p.name),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptProfiles, recordingId]);
@@ -137,7 +160,7 @@ export default function PostRecordingControls() {
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="rounded-card border border-border bg-surface p-4">
+    <div className="rounded-card border border-border bg-surface p-4" data-tutorial="post-controls">
       {/* Audio element — use custom audio-file:// protocol for Electron */}
       {audioPath && (
         <audio
@@ -191,18 +214,14 @@ export default function PostRecordingControls() {
         <button
           onClick={handleKeep}
           className="rounded-card px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110"
-          style={{ backgroundColor: '#00c853' }}
+          style={{ backgroundColor: '#2DD4A8' }}
         >
           Keep
         </button>
         <button
-          onClick={() => {
-            const id = recordingId;
-            discardRecordingSession();
-            if (id) deleteRecording(id);
-          }}
+          onClick={() => setShowDiscardConfirm(true)}
           className="rounded-card px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-110"
-          style={{ backgroundColor: '#ff5252' }}
+          style={{ backgroundColor: '#FF5A5F' }}
         >
           Discard
         </button>
@@ -214,16 +233,11 @@ export default function PostRecordingControls() {
         >
           Transcribe
         </button>
-        <Dropdown
-          trigger={
-            <button
-              disabled={!recordingId}
-              className="rounded-card border border-border bg-surface-2 px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-surface-3 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Send to AI &#9662;
-            </button>
-          }
+        <SplitButton
+          label="Send to AI"
+          onPrimaryClick={() => defaultProfile && handleSendToAi(defaultProfile.id, defaultProfile.name)}
           items={aiProfileItems}
+          disabled={!recordingId}
         />
       </div>
 
@@ -233,6 +247,66 @@ export default function PostRecordingControls() {
           {transcribeStatus}
         </p>
       )}
+
+      {/* Discard Confirmation Modal */}
+      <Modal
+        isOpen={showDiscardConfirm}
+        title="Discard Recording?"
+        onClose={() => setShowDiscardConfirm(false)}
+        footer={
+          <>
+            <button
+              className="rounded-lg px-4 py-2 text-sm text-text-muted hover:bg-surface-2"
+              onClick={() => setShowDiscardConfirm(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded-lg bg-danger px-4 py-2 text-sm text-white hover:opacity-90"
+              onClick={() => {
+                const id = recordingId;
+                discardRecordingSession();
+                if (id) deleteRecording(id);
+                setShowDiscardConfirm(false);
+              }}
+            >
+              Discard
+            </button>
+          </>
+        }
+      >
+        <p>This recording and its audio will be permanently deleted. This cannot be undone.</p>
+      </Modal>
+
+      {/* Overwrite confirmation modal */}
+      <Modal
+        isOpen={overwriteConfirm !== null}
+        title="Overwrite Existing Card?"
+        onClose={() => setOverwriteConfirm(null)}
+        footer={
+          <>
+            <button
+              className="rounded-lg px-4 py-2 text-sm text-text-muted hover:bg-surface-2"
+              onClick={() => setOverwriteConfirm(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded-lg bg-accent px-4 py-2 text-sm text-white hover:opacity-90"
+              onClick={() => {
+                if (overwriteConfirm) executeSendToAi(overwriteConfirm.profileId, overwriteConfirm.profileName);
+                setOverwriteConfirm(null);
+              }}
+            >
+              Overwrite
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm">
+          A <strong>{overwriteConfirm?.profileName || 'Summary'}</strong> card already exists. This will regenerate and overwrite its content, including any action items.
+        </p>
+      </Modal>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { registerSummaryHandlers } from './summary.ipc';
 import { registerPromptProfileHandlers } from './prompt-profile.ipc';
 import { registerSettingsHandlers } from './settings.ipc';
 import { registerWorkspaceHandlers } from './workspace.ipc';
+import { registerTutorialHandlers } from './tutorial.ipc';
 
 export function registerAllHandlers(services: ServiceContainer): void {
   registerNotebookHandlers(services.notebooks);
@@ -15,5 +16,6 @@ export function registerAllHandlers(services: ServiceContainer): void {
   registerSummaryHandlers(services);
   registerPromptProfileHandlers(services.promptProfiles);
   registerSettingsHandlers(services);
-  registerWorkspaceHandlers(services.workspaceCards, services.customTasks, services.highlights);
+  registerWorkspaceHandlers(services.workspaceCards, services.customTasks, services.highlights, services.promptProfiles);
+  registerTutorialHandlers(services);
 }

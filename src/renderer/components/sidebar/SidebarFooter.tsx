@@ -1,12 +1,34 @@
 import { useUiStore } from '../../stores/ui.store';
+import { useTutorialStore } from '../../stores/tutorial.store';
+import { useNotebookStore } from '../../stores/notebook.store';
+import { useRecordingStore } from '../../stores/recording.store';
 
 export default function SidebarFooter() {
   const setSettingsPanelOpen = useUiStore((s) => s.setSettingsPanelOpen);
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
+  const startTutorial = useTutorialStore((s) => s.start);
+  const fetchRecordings = useRecordingStore((s) => s.fetchRecordings);
+  const fetchNotebooks = useNotebookStore((s) => s.fetchNotebooks);
+  const selectNotebook = useNotebookStore((s) => s.setSelectedNotebookId);
 
   const handleNewNotebook = () => {
-    window.dispatchEvent(new CustomEvent('yourecord:new-notebook'));
+    window.dispatchEvent(new CustomEvent('resonate:new-notebook'));
+  };
+
+  const handleStartTutorial = async () => {
+    try {
+      const result = await window.electronAPI.invoke('tutorial:seed-data', undefined);
+      // Refresh data to show the new notebook/recordings
+      await fetchNotebooks();
+      await fetchRecordings();
+      // Select the tutorial notebook
+      selectNotebook(result.notebookId);
+    } catch (err) {
+      console.error('Failed to seed tutorial data:', err);
+    }
+    // Start the tutorial walkthrough
+    startTutorial();
   };
 
   return (
@@ -21,6 +43,18 @@ export default function SidebarFooter() {
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
         Notebook
+      </button>
+      <button
+        onClick={handleStartTutorial}
+        className="flex items-center justify-center rounded-card p-1.5 text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+        title="Tutorial"
+      >
+        {/* Question mark / help icon */}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
       </button>
       <button
         onClick={toggleTheme}
@@ -51,6 +85,7 @@ export default function SidebarFooter() {
         onClick={() => setSettingsPanelOpen(true)}
         className="flex items-center justify-center rounded-card p-1.5 text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
         title="Settings"
+        data-tutorial="settings-button"
       >
         {/* Gear icon */}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

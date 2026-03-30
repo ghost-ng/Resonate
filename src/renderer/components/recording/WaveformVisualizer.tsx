@@ -3,7 +3,7 @@ import { useEffect, useRef, useCallback } from 'react';
 const BUFFER_SIZE = 100;
 const BAR_WIDTH = 3;
 const BAR_GAP = 1;
-const MIC_COLOR = '#5b8def';
+const MIC_COLOR = '#4A90FF';
 const SYSTEM_COLOR = '#4ade80';
 
 export default function WaveformVisualizer() {

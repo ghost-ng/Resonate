@@ -25,7 +25,7 @@ interface UiState {
 
 function loadTheme(): Theme {
   try {
-    const stored = localStorage.getItem('yourecord-theme');
+    const stored = localStorage.getItem('resonate-theme');
     if (stored === 'light' || stored === 'dark') return stored;
   } catch {
     // localStorage not available
@@ -49,7 +49,7 @@ export const useUiStore = create<UiState>((set) => ({
     set((s) => {
       const next: Theme = s.theme === 'dark' ? 'light' : 'dark';
       try {
-        localStorage.setItem('yourecord-theme', next);
+        localStorage.setItem('resonate-theme', next);
       } catch {
         // localStorage not available
       }
