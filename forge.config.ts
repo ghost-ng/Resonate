@@ -9,10 +9,27 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: '**/{better-sqlite3,native-recorder-nodejs}/**/*.{node,dll}',
+    },
     icon: './resources/icon',
     extraResource: [
       './resources/whisper',
+    ],
+    // Exclude unnecessary files to reduce size
+    ignore: [
+      /^\/src\//,
+      /^\/docs\//,
+      /^\/\.github\//,
+      /^\/\.gitattributes$/,
+      /^\/\.gitignore$/,
+      /^\/\.eslintrc/,
+      /^\/tsconfig/,
+      /^\/vite\..+\.config/,
+      /^\/tailwind\.config/,
+      /^\/postcss\.config/,
+      /^\/yourecord-ui-playground/,
+      /^\/README\.md$/,
     ],
   },
   rebuildConfig: {},
@@ -24,11 +41,8 @@ const config: ForgeConfig = {
   ],
   plugins: [
     new VitePlugin({
-      // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
-      // If you are familiar with Vite configuration, it will look really familiar.
       build: [
         {
-          // `entry` is just an alias for `build.lib.entry` in the corresponding file of `config`.
           entry: 'src/main/index.ts',
           config: 'vite.main.config.ts',
           target: 'main',
@@ -46,16 +60,14 @@ const config: ForgeConfig = {
         },
       ],
     }),
-    // Fuses are used to enable/disable various Electron functionality
-    // at package time, before code signing the application
     new FusesPlugin({
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: false,
       [FuseV1Options.EnableCookieEncryption]: true,
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: false,
+      [FuseV1Options.OnlyLoadAppFromAsar]: false,
     }),
   ],
 };
