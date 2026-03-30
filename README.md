@@ -44,25 +44,17 @@
 ### Install & Run
 
 ```bash
-git clone https://github.com/ghost-ng/resonate.git
-cd resonate
+git clone https://github.com/ghost-ng/Resonate.git
+cd Resonate
 npm install
 npm start
 ```
 
-### Whisper Setup
+`npm install` automatically downloads [whisper.cpp](https://github.com/ggerganov/whisper.cpp) binaries and the `base.en` model (~150 MB). To re-download or update manually:
 
-Resonate uses [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for local transcription. Place the following in `resources/whisper/`:
-
+```bash
+npm run setup:whisper
 ```
-resources/
-  whisper/
-    whisper-cli.exe        # whisper.cpp CLI binary
-    models/
-      ggml-base.en.bin     # Whisper model file
-```
-
-Download prebuilt binaries from the [whisper.cpp releases](https://github.com/ggerganov/whisper.cpp/releases) page. Use the `base.en` model for English or `base` for multilingual.
 
 ### AI Configuration
 
@@ -107,9 +99,11 @@ npx electron-rebuild
 
 ### Packaging Checklist
 
-1. Ensure `resources/whisper/whisper-cli.exe` exists (bundled via `extraResource` in forge config)
-2. Ensure `resources/icon.ico` and `resources/icon.png` exist
-3. Ensure `logo.png` exists at project root (used in splash screen)
+All external dependencies are handled automatically:
+
+1. `npm install` downloads whisper.cpp binary and base.en model via `postinstall`
+2. `resources/whisper/` is bundled into the app via `extraResource` in forge config
+3. Native modules (`better-sqlite3`, `native-recorder-nodejs`) are rebuilt for Electron
 4. Run `npm run make` to create the installer
 
 ## Project Structure
