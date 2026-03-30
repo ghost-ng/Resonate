@@ -16,24 +16,17 @@ export default function SttEngineConfig() {
     <div className="flex flex-col gap-3">
       <h3 className="text-lg font-semibold text-text">Speech-to-Text Engine</h3>
 
-      <div className="flex flex-col gap-2">
+      <select
+        value={engine}
+        onChange={(e) => setSetting('stt_engine', e.target.value)}
+        className="rounded-card border border-border bg-surface px-3 py-1.5 text-base text-text outline-none focus:border-accent cursor-pointer"
+      >
         {STT_ENGINES.map((e) => (
-          <label
-            key={e.value}
-            className="flex items-center gap-2 cursor-pointer rounded-card px-3 py-2 hover:bg-surface-2 transition-colors"
-          >
-            <input
-              type="radio"
-              name="stt_engine"
-              value={e.value}
-              checked={engine === e.value}
-              onChange={() => setSetting('stt_engine', e.value)}
-              className="accent-accent"
-            />
-            <span className="text-base text-text">{e.label}</span>
-          </label>
+          <option key={e.value} value={e.value}>
+            {e.label}
+          </option>
         ))}
-      </div>
+      </select>
 
       {engine === 'cloud' ? (
         <div className="flex flex-col gap-2 mt-1 pl-6">
@@ -54,7 +47,7 @@ export default function SttEngineConfig() {
             className="rounded-card border border-border bg-surface px-3 py-1.5 text-base text-text placeholder:text-text-muted/50 outline-none focus:border-accent"
           />
         </div>
-      ) : (
+      ) : engine !== 'whisper' ? (
         <div className="flex flex-col gap-2 mt-1 pl-6">
           <label className="text-sm text-text-muted">Model Path</label>
           <input
@@ -65,7 +58,7 @@ export default function SttEngineConfig() {
             className="rounded-card border border-border bg-surface px-3 py-1.5 text-base text-text placeholder:text-text-muted/50 outline-none focus:border-accent"
           />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

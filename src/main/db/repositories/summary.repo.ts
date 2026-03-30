@@ -14,6 +14,20 @@ export interface ActionItemInput {
 export class SummaryRepository {
   constructor(private db: Database.Database) {}
 
+  findById(id: number): SummaryWithActionItems | undefined {
+    const summary = this.db
+      .prepare('SELECT * FROM summaries WHERE id = ?')
+      .get(id) as Summary | undefined;
+
+    if (!summary) return undefined;
+
+    const actionItems = this.db
+      .prepare('SELECT * FROM action_items WHERE summary_id = ? ORDER BY sort_order, id')
+      .all(summary.id) as ActionItem[];
+
+    return { ...summary, action_items: actionItems };
+  }
+
   findByRecording(recordingId: number): SummaryWithActionItems | undefined {
     const summary = this.db
       .prepare('SELECT * FROM summaries WHERE recording_id = ? ORDER BY id DESC LIMIT 1')

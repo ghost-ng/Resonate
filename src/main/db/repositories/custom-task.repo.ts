@@ -27,7 +27,7 @@ export class CustomTaskRepository {
 
   update(
     id: number,
-    fields: { text?: string; completed?: number; sort_order?: number }
+    fields: { text?: string; completed?: number; sort_order?: number; assignee?: string | null }
   ): CustomTask | undefined {
     const sets: string[] = [];
     const values: unknown[] = [];
@@ -35,6 +35,7 @@ export class CustomTaskRepository {
     if (fields.text !== undefined) { sets.push('text = ?'); values.push(fields.text); }
     if (fields.completed !== undefined) { sets.push('completed = ?'); values.push(fields.completed); }
     if (fields.sort_order !== undefined) { sets.push('sort_order = ?'); values.push(fields.sort_order); }
+    if (fields.assignee !== undefined) { sets.push('assignee = ?'); values.push(fields.assignee); }
 
     if (sets.length === 0) return this.findById(id);
 

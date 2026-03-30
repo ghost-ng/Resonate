@@ -9,8 +9,8 @@ export default function AutoDetectBanner() {
   if (!showBanner || !detectedApp) return null;
 
   return (
-    <div className="mx-4 mt-3 flex items-center gap-3 rounded-card border border-accent/30 bg-accent/10 px-4 py-2.5 animate-slide-down">
-      <span className="text-lg">📡</span>
+    <div className="mx-4 mt-3 flex items-center gap-3 rounded-card border border-accent/30 bg-accent/10 px-4 py-2.5 animate-slide-down animate-[banner-pulse_2s_ease-in-out_infinite]">
+      <span className="text-lg animate-[beacon_1.5s_ease-in-out_infinite]">📡</span>
       <div className="flex-1">
         <div className="text-sm font-medium text-text">
           {detectedApp} call detected

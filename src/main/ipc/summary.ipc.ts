@@ -8,6 +8,10 @@ export function registerSummaryHandlers(services: ServiceContainer): void {
     summaries.findByRecording(args.recordingId) ?? null
   );
 
+  ipcMain.handle('summary:get-by-id', (_, args: { id: number }) =>
+    summaries.findById(args.id) ?? null
+  );
+
   ipcMain.handle('summary:generate', async (_, args: { recordingId: number; profileId?: number }) => {
     const recording = recordings.findById(args.recordingId);
     if (!recording) {
@@ -46,7 +50,7 @@ export function registerSummaryHandlers(services: ServiceContainer): void {
       );
 
       // Save summary and action items
-      summaries.create(args.recordingId, {
+      const saved = summaries.create(args.recordingId, {
         modelUsed: services.settings.get('ai_model') ?? null,
         systemPromptUsed: null,
         content: result.content,
@@ -60,6 +64,8 @@ export function registerSummaryHandlers(services: ServiceContainer): void {
       // Update recording status to complete
       recordings.update(args.recordingId, { status: 'complete' });
       sendStatusEvent(args.recordingId, 'complete');
+
+      return { summaryId: saved.id };
     } catch (err) {
       recordings.update(args.recordingId, { status: 'error' });
       sendStatusEvent(args.recordingId, 'error');
@@ -68,7 +74,11 @@ export function registerSummaryHandlers(services: ServiceContainer): void {
   });
 
   ipcMain.handle('action-item:toggle', (_, args: { id: number; completed: boolean }) => {
-    actionItems.toggleCompleted(args.id, args.completed);
+    return actionItems.toggleCompleted(args.id, args.completed);
+  });
+
+  ipcMain.handle('action-item:update', (_, args: { id: number; text?: string; assignee?: string | null }) => {
+    return actionItems.update(args.id, { text: args.text, assignee: args.assignee });
   });
 }
 

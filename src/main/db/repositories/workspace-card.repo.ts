@@ -24,11 +24,13 @@ export class WorkspaceCardRepository {
     grid_row?: number;
     grid_w?: number;
     grid_h?: number;
+    reference_id?: number | null;
+    sort_order?: number;
   }): WorkspaceCard {
     const result = this.db
       .prepare(
-        `INSERT INTO workspace_cards (recording_id, card_type, title, grid_col, grid_row, grid_w, grid_h)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO workspace_cards (recording_id, card_type, title, grid_col, grid_row, grid_w, grid_h, reference_id, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         fields.recording_id,
@@ -37,7 +39,9 @@ export class WorkspaceCardRepository {
         fields.grid_col ?? 0,
         fields.grid_row ?? 0,
         fields.grid_w ?? 1,
-        fields.grid_h ?? 1
+        fields.grid_h ?? 1,
+        fields.reference_id ?? null,
+        fields.sort_order ?? 0
       );
     return this.findById(Number(result.lastInsertRowid))!;
   }
@@ -52,6 +56,7 @@ export class WorkspaceCardRepository {
       grid_h?: number;
       collapsed?: number;
       sort_order?: number;
+      reference_id?: number | null;
     }
   ): WorkspaceCard | undefined {
     const sets: string[] = [];
@@ -64,6 +69,7 @@ export class WorkspaceCardRepository {
     if (fields.grid_h !== undefined) { sets.push('grid_h = ?'); values.push(fields.grid_h); }
     if (fields.collapsed !== undefined) { sets.push('collapsed = ?'); values.push(fields.collapsed); }
     if (fields.sort_order !== undefined) { sets.push('sort_order = ?'); values.push(fields.sort_order); }
+    if (fields.reference_id !== undefined) { sets.push('reference_id = ?'); values.push(fields.reference_id); }
 
     if (sets.length === 0) return this.findById(id);
 
@@ -77,13 +83,13 @@ export class WorkspaceCardRepository {
     return result.changes > 0;
   }
 
-  initDefaults(recordingId: number): WorkspaceCard[] {
+  initDefaults(recordingId: number, summaryTitle?: string): WorkspaceCard[] {
     const existing = this.findByRecording(recordingId);
     if (existing.length > 0) return existing;
 
     const defaults: { card_type: string; title: string; grid_col: number; grid_row: number; grid_w: number; grid_h: number }[] = [
       { card_type: 'transcript', title: 'Transcript', grid_col: 0, grid_row: 0, grid_w: 1, grid_h: 2 },
-      { card_type: 'summary', title: 'Summary', grid_col: 1, grid_row: 0, grid_w: 1, grid_h: 1 },
+      { card_type: 'summary', title: summaryTitle ?? 'Summary', grid_col: 1, grid_row: 0, grid_w: 1, grid_h: 1 },
       { card_type: 'action_items', title: 'Action Items', grid_col: 1, grid_row: 1, grid_w: 1, grid_h: 1 },
     ];
 

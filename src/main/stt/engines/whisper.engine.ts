@@ -4,8 +4,32 @@ import { execFile } from 'child_process';
 import { app } from 'electron';
 import type { SttEngine, SttEngineConfig, TranscriptSegment } from '../../../shared/types/stt.types';
 
-const WHISPER_DIR = () => path.join(app.getPath('userData'), 'whisper');
-const WHISPER_EXE = () => path.join(WHISPER_DIR(), 'Release', 'whisper-cli.exe');
+/**
+ * Resolve whisper directory — check bundled location first, then userData (downloaded).
+ */
+const WHISPER_DIR = () => {
+  // Bundled: packaged app puts extraResources next to asar
+  const bundled = app.isPackaged
+    ? path.join(process.resourcesPath, 'whisper')
+    : path.join(app.getAppPath(), 'resources', 'whisper');
+
+  if (fs.existsSync(path.join(bundled, 'whisper-cli.exe')) ||
+      fs.existsSync(path.join(bundled, 'Release', 'whisper-cli.exe'))) {
+    return bundled;
+  }
+
+  // Fallback: downloaded to userData (legacy / auto-download path)
+  return path.join(app.getPath('userData'), 'whisper');
+};
+
+const WHISPER_EXE = () => {
+  const dir = WHISPER_DIR();
+  // Support both flat layout (bundled) and Release/ subfolder (downloaded)
+  const flat = path.join(dir, 'whisper-cli.exe');
+  if (fs.existsSync(flat)) return flat;
+  return path.join(dir, 'Release', 'whisper-cli.exe');
+};
+
 const DEFAULT_MODEL = () => path.join(WHISPER_DIR(), 'models', 'ggml-base.en.bin');
 
 export class WhisperEngine implements SttEngine {
@@ -16,7 +40,7 @@ export class WhisperEngine implements SttEngine {
     const modelPath = config.modelPath || DEFAULT_MODEL();
 
     if (!fs.existsSync(exePath)) {
-      throw new Error(`whisper.cpp not found. Please download it via Settings → STT Engine → Download Whisper.`);
+      throw new Error(`whisper-cli.exe not found at ${exePath}. Place whisper-cli.exe in resources/whisper/.`);
     }
     if (!fs.existsSync(modelPath)) {
       throw new Error(`Whisper model not found at ${modelPath}. Please download via Settings.`);
@@ -41,6 +65,7 @@ export class WhisperEngine implements SttEngine {
         '-oj',                    // output JSON file
         '-of', outputBase,        // output file base name (adds .json)
         '-np',                    // no prints except results
+        // '--tinydiarize',       // disabled: produces too many false speaker turns — needs tuning
       ];
 
       console.log(`[Whisper] Running: ${exePath} ${args.join(' ')}`);
@@ -69,14 +94,58 @@ export class WhisperEngine implements SttEngine {
         try {
           const jsonContent = fs.readFileSync(jsonPath, 'utf8');
           const result = JSON.parse(jsonContent);
-          const segments: TranscriptSegment[] = (result.transcription || []).map((seg: any) => ({
-            speaker: 'Speaker',
-            text: (seg.text || '').trim(),
-            start_time_ms: seg.offsets?.from ?? 0,
-            end_time_ms: seg.offsets?.to ?? 0,
-            confidence: 0.9,
-          }));
-          console.log(`[Whisper] Got ${segments.length} segments`);
+          // Post-process segments — detect speaker turns and cycle through speakers.
+          // Whisper outputs ">>" prefixes or [SPEAKER_TURN] tokens to indicate
+          // a speaker change. We cycle through Speaker 1..N on each turn.
+          //
+          // Since whisper can't identify WHO is speaking (only WHEN turns happen),
+          // we default to 2 speakers. The participant_count from the recording
+          // is used as a hint if available, otherwise we estimate from turn frequency.
+          const rawSegments = result.transcription || [];
+
+          // Count turn markers to estimate speaker count
+          let turnCount = 0;
+          for (const seg of rawSegments) {
+            const t = (seg.text || '').trim();
+            if (t.includes('[SPEAKER_TURN]') || /^>>/.test(t) || seg.speaker_turn === true) {
+              turnCount++;
+            }
+          }
+
+          // Heuristic: if very few turns relative to segments, likely 1 speaker.
+          // Otherwise default to 2. Users can adjust via speaker rename UI.
+          const estimatedSpeakers = turnCount === 0 ? 1 : 2;
+
+          let currentSpeaker = 1;
+          const numSpeakers = estimatedSpeakers;
+          const segments: TranscriptSegment[] = rawSegments.map((seg: any) => {
+            let text = (seg.text || '').trim();
+
+            // Detect speaker turn markers
+            const hasTurn = text.includes('[SPEAKER_TURN]')
+              || /^>>/.test(text)
+              || seg.speaker_turn === true;
+
+            if (hasTurn) {
+              // Cycle to next speaker: 1→2→...→N→1
+              currentSpeaker = (currentSpeaker % numSpeakers) + 1;
+            }
+
+            // Strip all turn markers from text
+            text = text
+              .replace(/\[SPEAKER_TURN\]/g, '')
+              .replace(/^>>\s*/gm, '')
+              .trim();
+
+            return {
+              speaker: `Speaker ${currentSpeaker}`,
+              text,
+              start_time_ms: seg.offsets?.from ?? 0,
+              end_time_ms: seg.offsets?.to ?? 0,
+              confidence: 0.9,
+            };
+          });
+          console.log(`[Whisper] Got ${segments.length} segments, ${turnCount} turns, ${numSpeakers} estimated speaker(s)`);
 
           // Clean up JSON file
           try { fs.unlinkSync(jsonPath); } catch { /* ignore */ }

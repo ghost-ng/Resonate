@@ -10,7 +10,7 @@ export default function TabBar() {
   if (openTabIds.length === 0) return null;
 
   return (
-    <div className="flex h-8 items-end gap-px border-b border-border bg-bg px-1">
+    <div className="flex h-8 items-end gap-px border-b border-border bg-bg px-1" data-tutorial="tab-bar">
       {openTabIds.map((id) => {
         const rec = recordings.find((r) => r.id === id);
         const isActive = id === activeTabId;

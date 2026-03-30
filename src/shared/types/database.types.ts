@@ -25,6 +25,7 @@ export interface Transcript {
   recording_id: number;
   engine_used: string;
   full_text: string | null;
+  speaker_map: string;
   created_at: string;
 }
 
@@ -81,6 +82,7 @@ export interface WorkspaceCard {
   grid_w: number;
   grid_h: number;
   collapsed: number;
+  reference_id: number | null;
   sort_order: number;
   created_at: string;
 }
@@ -90,6 +92,7 @@ export interface CustomTask {
   card_id: number;
   text: string;
   completed: number;
+  assignee: string | null;
   source_segment_id: number | null;
   sort_order: number;
   created_at: string;

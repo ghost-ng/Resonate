@@ -2,6 +2,12 @@
 // Records mic + system audio directly to a WAV file
 // Communicates status with parent via process.send()
 
+// Suppress Node-API uncaught exception deprecation warning
+process.execArgv = process.execArgv || [];
+process.on('uncaughtException', (err) => {
+  try { process.send({ type: 'error', message: err.message }); } catch { /* ignore */ }
+});
+
 const fs = require('fs');
 const path = require('path');
 const { AudioRecorder } = require('native-recorder-nodejs');
@@ -188,26 +194,26 @@ const sysRecorder = outputDev ? new AudioRecorder() : null;
 let micDataCount = 0;
 let sysDataCount = 0;
 let lastLevelTime = 0;
+let lastMicLevel = 0;
+let lastSysLevel = 0;
+
+function sendLevels() {
+  const now = Date.now();
+  if (now - lastLevelTime > 50) {
+    lastLevelTime = now;
+    try {
+      process.send({ type: 'levels', mic: lastMicLevel, system: lastSysLevel });
+    } catch { /* ignore */ }
+  }
+}
 
 micRecorder.on('data', (buf) => {
   micDataCount++;
   const float32 = bufferToFloat32Mono(buf, inputChannels);
   const downsampled = downsample(float32, sampleRate, targetRate);
   micBuf = concatF32(micBuf, downsampled);
-
-  // Send levels at ~20Hz
-  const now = Date.now();
-  if (now - lastLevelTime > 50) {
-    lastLevelTime = now;
-    try {
-      process.send({
-        type: 'levels',
-        mic: rms(downsampled),
-        system: sysDataCount > 0 ? rms(sysBuf.subarray(Math.max(0, sysBuf.length - 320))) : 0,
-      });
-    } catch { /* ignore */ }
-  }
-
+  lastMicLevel = rms(downsampled);
+  sendLevels();
   flush();
 });
 
@@ -219,6 +225,8 @@ if (sysRecorder) {
     const float32 = bufferToFloat32Mono(buf, inputChannels);
     const downsampled = downsample(float32, sampleRate, targetRate);
     sysBuf = concatF32(sysBuf, downsampled);
+    lastSysLevel = rms(downsampled);
+    sendLevels();
     flush();
   });
   sysRecorder.on('error', (err) => log(`System error: ${err.message}`));

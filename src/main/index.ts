@@ -1,5 +1,6 @@
-import { app, BrowserWindow, protocol, net, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, protocol, net, ipcMain } from 'electron';
 import path from 'node:path';
+import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
 
@@ -7,6 +8,9 @@ import { getDatabase, closeDatabase } from './db/connection';
 import { runMigrations } from './db/migration-runner';
 import { migration001 } from './db/migrations/001_initial_schema';
 import { migration002 } from './db/migrations/002_workspace_cards';
+import { migration003 } from './db/migrations/003_card_reference_id';
+import { migration004 } from './db/migrations/004_speaker_map';
+import { migration005 } from './db/migrations/005_custom_task_assignee';
 
 import { NotebookRepository } from './db/repositories/notebook.repo';
 import { RecordingRepository } from './db/repositories/recording.repo';
@@ -61,11 +65,89 @@ if (started) {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let miniWindow: BrowserWindow | null = null;
+let splashWindow: BrowserWindow | null = null;
 let debugModeEnabled = false;
+
+function createSplashWindow(): BrowserWindow {
+  const splash = new BrowserWindow({
+    width: 360,
+    height: 300,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    icon: path.join(app.getAppPath(), 'resources', 'icon.png'),
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  });
+
+  // Load logo as base64 data URI
+  let logoDataUri = '';
+  const logoPath = path.join(app.getAppPath(), 'logo.png');
+  if (fs.existsSync(logoPath)) {
+    const logoData = fs.readFileSync(logoPath);
+    logoDataUri = `data:image/png;base64,${logoData.toString('base64')}`;
+  }
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0B0F2A;
+    color: #E4E6F0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    border-radius: 12px;
+    border: 1px solid #2A2F5A;
+    overflow: hidden;
+    -webkit-app-region: drag;
+  }
+  .logo-img { width: 72px; height: 72px; margin-bottom: 16px; object-fit: contain; }
+  .title { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+  .tagline { font-size: 11px; color: #8B90A5; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 28px; }
+  .status { font-size: 11px; color: #8B90A5; margin-bottom: 8px; min-height: 16px; }
+  .bar-bg { width: 220px; height: 4px; background: #1E234E; border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; background: #5B3DF5; border-radius: 2px; transition: width 0.3s ease; width: 0%; }
+</style>
+</head>
+<body>
+  ${logoDataUri ? `<img class="logo-img" src="${logoDataUri}" alt="Resonate" />` : ''}
+  <div class="title">Resonate</div>
+  <div class="tagline">Voice to Notes, Instantly</div>
+  <div class="status" id="status">Starting...</div>
+  <div class="bar-bg"><div class="bar-fill" id="bar"></div></div>
+  <script>
+    window.setSplashProgress = (percent, label) => {
+      document.getElementById('bar').style.width = percent + '%';
+      document.getElementById('status').textContent = label;
+    };
+  </script>
+</body>
+</html>`;
+
+  splash.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  splash.center();
+  return splash;
+}
+
+function updateSplash(percent: number, label: string): void {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.executeJavaScript(
+      `window.setSplashProgress(${percent}, ${JSON.stringify(label)})`
+    ).catch(() => {});
+  }
+}
 
 function bootstrap(): ServiceContainer {
   const db = getDatabase();
-  runMigrations(db, [migration001, migration002]);
+  runMigrations(db, [migration001, migration002, migration003, migration004, migration005]);
 
   // Repositories
   const notebooks = new NotebookRepository(db);
@@ -100,9 +182,14 @@ function bootstrap(): ServiceContainer {
       });
     }
   } else {
-    // Update existing default profiles if they have old prompts (without anti-hallucination)
+    // Update existing default profiles if they have old prompts
     const needsUpdate = existingProfiles.some(
-      (p) => p.system_prompt && !p.system_prompt.includes('ONLY') && !p.system_prompt.includes('hallucinate')
+      (p) => {
+        const isDefault = DEFAULT_PROMPT_PROFILES.some((d) => d.name === p.name);
+        if (!isDefault) return false;
+        // Check if prompt is outdated (missing key instructions)
+        return (p.system_prompt && !p.system_prompt.includes('feedback requiring revision'));
+      }
     );
     if (needsUpdate) {
       // Delete old defaults and re-seed
@@ -154,8 +241,9 @@ const createWindow = (services: ServiceContainer) => {
     height: 800,
     minWidth: 900,
     minHeight: 600,
+    show: false,
     icon: path.join(app.getAppPath(), 'resources', 'icon.png'),
-    backgroundColor: '#0f1117',
+    backgroundColor: '#0B0F2A',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -185,7 +273,9 @@ const createWindow = (services: ServiceContainer) => {
 
   // Forward audio levels to the renderer
   services.audioCapture.onAudioLevels((levels) => {
-    mainWindow?.webContents.send('recording:audio-levels', levels);
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('recording:audio-levels', levels);
+    }
   });
 
   mainWindow.on('closed', () => {
@@ -220,6 +310,11 @@ app.on('certificate-error', (event, _webContents, _url, _error, _certificate, ca
 });
 
 app.on('ready', () => {
+  // Show splash screen immediately
+  Menu.setApplicationMenu(null);
+  splashWindow = createSplashWindow();
+  updateSplash(5, 'Starting up...');
+
   // Register protocol handler to serve local audio files
   protocol.handle('audio-file', (request) => {
     const url = request.url;
@@ -242,11 +337,97 @@ app.on('ready', () => {
     return debugModeEnabled;
   });
 
+  // Pin window always-on-top
+  ipcMain.handle('app:set-always-on-top', (_, args: { enabled: boolean }) => {
+    const win = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    win?.setAlwaysOnTop(args.enabled, 'floating');
+    return args.enabled;
+  });
+
+  // Pop out mini recording window
+  ipcMain.handle('app:popout-recording', () => {
+    if (miniWindow && !miniWindow.isDestroyed()) {
+      miniWindow.focus();
+      return true;
+    }
+
+    miniWindow = new BrowserWindow({
+      width: 380,
+      height: 200,
+      minWidth: 300,
+      minHeight: 150,
+      frame: false,
+      transparent: false,
+      alwaysOnTop: true,
+      resizable: true,
+      skipTaskbar: false,
+      backgroundColor: '#0B0F2A',
+      icon: path.join(app.getAppPath(), 'resources', 'icon.png'),
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    // Load the same app but with a query param to signal mini mode
+    if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+      miniWindow.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}?mini=true`);
+    } else {
+      miniWindow.loadFile(
+        path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
+        { query: { mini: 'true' } }
+      );
+    }
+
+    miniWindow.on('closed', () => {
+      miniWindow = null;
+      // Notify main window that mini closed
+      mainWindow?.webContents.send('mini-window:closed');
+    });
+
+    // Minimize main window
+    mainWindow?.minimize();
+
+    return true;
+  });
+
+  // Pop back in — close mini window and restore main
+  ipcMain.handle('app:popin-recording', () => {
+    if (miniWindow && !miniWindow.isDestroyed()) {
+      miniWindow.close();
+      miniWindow = null;
+    }
+    mainWindow?.restore();
+    mainWindow?.focus();
+    return true;
+  });
+
+  updateSplash(10, 'Initializing database...');
   const services = bootstrap();
+
+  updateSplash(40, 'Registering handlers...');
   registerAllHandlers(services);
-  createWindow(services);
+
+  updateSplash(60, 'Creating window...');
+  const win = createWindow(services);
+
+  updateSplash(80, 'Loading interface...');
+
+  // Close splash when main window is ready
+  win.webContents.on('did-finish-load', () => {
+    updateSplash(100, 'Ready');
+    setTimeout(() => {
+      if (splashWindow && !splashWindow.isDestroyed()) {
+        splashWindow.close();
+        splashWindow = null;
+      }
+      win.show();
+    }, 300);
+  });
 
   // Start polling for meeting apps
+  updateSplash(90, 'Starting services...');
   services.processMonitor.start();
 });
 

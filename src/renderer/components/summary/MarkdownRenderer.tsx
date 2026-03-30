@@ -1,10 +1,13 @@
 import ReactMarkdown from 'react-markdown';
+import HighlightText from '../shared/HighlightText';
+import { useCardSearch } from '../workspace/CardSearchContext';
 
 interface Props {
   content: string;
 }
 
 export default function MarkdownRenderer({ content }: Props) {
+  const { query, activeMatchIndex } = useCardSearch();
   return (
     <div className="max-w-none">
       <ReactMarkdown

@@ -1,6 +1,6 @@
 {
-  "name": "yourecord",
-  "productName": "youRecord",
+  "name": "resonate",
+  "productName": "Resonate",
   "version": "0.1.0",
   "description": "Desktop recording and note-taking app",
   "main": ".vite/build/index.js",
@@ -12,7 +12,10 @@
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "version:patch": "npm version patch --no-git-tag-version && node -e \"const fs=require('fs');const p=require('./package.json');const c='src/shared/constants.ts';fs.writeFileSync(c,fs.readFileSync(c,'utf8').replace(/APP_VERSION = '[^']+'/,`APP_VERSION = '${p.version}'`))\"",
+    "version:minor": "npm version minor --no-git-tag-version && node -e \"const fs=require('fs');const p=require('./package.json');const c='src/shared/constants.ts';fs.writeFileSync(c,fs.readFileSync(c,'utf8').replace(/APP_VERSION = '[^']+'/,`APP_VERSION = '${p.version}'`))\"",
+    "version:major": "npm version major --no-git-tag-version && node -e \"const fs=require('fs');const p=require('./package.json');const c='src/shared/constants.ts';fs.writeFileSync(c,fs.readFileSync(c,'utf8').replace(/APP_VERSION = '[^']+'/,`APP_VERSION = '${p.version}'`))\""
   },
   "keywords": [],
   "author": {

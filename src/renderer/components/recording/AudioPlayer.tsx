@@ -3,9 +3,13 @@ import { formatTimestamp } from '../../lib/formatters';
 import { useNotebookStore } from '../../stores/notebook.store';
 import { useRecordingStore } from '../../stores/recording.store';
 import { useSettingsStore } from '../../stores/settings.store';
+import { useWorkspaceStore } from '../../stores/workspace.store';
 import { ALL_RECORDINGS_ID } from '../../lib/constants';
 import Dropdown from '../shared/Dropdown';
 import type { DropdownItem } from '../shared/Dropdown';
+import SplitButton from '../shared/SplitButton';
+import type { SplitButtonItem } from '../shared/SplitButton';
+import Modal from '../shared/Modal';
 
 interface Props {
   audioPath: string;
@@ -30,22 +34,26 @@ export default function AudioPlayer({ audioPath, recordingId, durationSeconds, o
     }
   }, []);
 
+  const setPlaybackTimeMs = useRecordingStore((s) => s.setPlaybackTimeMs);
+
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime * 1000);
-      // If we still don't have duration from the element, keep trying
+      const timeMs = audioRef.current.currentTime * 1000;
+      setCurrentTime(timeMs);
+      setPlaybackTimeMs(timeMs);
       if (audioRef.current.duration && isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
         setDuration(audioRef.current.duration * 1000);
       }
     }
-  }, []);
+  }, [setPlaybackTimeMs]);
 
   const handleEnded = useCallback(() => {
     setIsPlaying(false);
+    setPlaybackTimeMs(undefined);
     if (audioRef.current && audioRef.current.currentTime > 0) {
       setDuration(audioRef.current.currentTime * 1000);
     }
-  }, []);
+  }, [setPlaybackTimeMs]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -88,14 +96,14 @@ export default function AudioPlayer({ audioPath, recordingId, durationSeconds, o
     audio.currentTime = (fraction * duration) / 1000;
   };
 
-  // "Send to" notebook dropdown
+  // "Reassign" notebook dropdown
   const notebooks = useNotebookStore((s) => s.notebooks);
   const moveToNotebook = useRecordingStore((s) => s.moveToNotebook);
   const fetchRecordings = useRecordingStore((s) => s.fetchRecordings);
   const selectedNotebookId = useNotebookStore((s) => s.selectedNotebookId);
 
-  const sendToItems = useMemo<DropdownItem[]>(() => {
-    const items: DropdownItem[] = notebooks.map((nb) => ({
+  const reassignItems = useMemo<DropdownItem[]>(() => {
+    return notebooks.map((nb) => ({
       label: `${nb.icon} ${nb.name}`,
       action: () => {
         moveToNotebook(recordingId, nb.id);
@@ -104,18 +112,6 @@ export default function AudioPlayer({ audioPath, recordingId, durationSeconds, o
         }
       },
     }));
-    if (items.length > 0) {
-      items.push({ label: '', action: () => {}, separator: true });
-    }
-    items.push({
-      label: 'Copy (same as move)',
-      action: () => {
-        if (notebooks.length > 0) {
-          moveToNotebook(recordingId, notebooks[0].id);
-        }
-      },
-    });
-    return items;
   }, [notebooks, recordingId, moveToNotebook, fetchRecordings, selectedNotebookId]);
 
   const [status, setStatus] = useState('');
@@ -133,12 +129,19 @@ export default function AudioPlayer({ audioPath, recordingId, durationSeconds, o
     }
   };
 
-  const handleSendToAi = async (profileId?: number) => {
+  const addCard = useWorkspaceStore((s) => s.addCard);
+  const findDuplicate = useWorkspaceStore((s) => s.findDuplicateCard);
+  const [overwriteConfirm, setOverwriteConfirm] = useState<{ profileId?: number; profileName?: string } | null>(null);
+
+  const executeSendToAi = async (profileId?: number, profileName?: string) => {
     setStatus('Generating summary...');
     try {
-      await window.electronAPI.invoke('summary:generate', { recordingId, profileId });
+      const name = profileName || 'Summary';
+      await addCard(recordingId, 'summary', name, profileId);
       setStatus('Summary complete');
       onStatusChange?.('summarized');
+      const ws = await import('../../stores/workspace.store');
+      ws.useWorkspaceStore.getState().fetchCards(recordingId);
     } catch (err: any) {
       const msg = err?.message || 'Summary failed';
       setStatus(`Error: ${msg}`);
@@ -146,15 +149,27 @@ export default function AudioPlayer({ audioPath, recordingId, durationSeconds, o
     }
   };
 
+  const handleSendToAi = async (profileId?: number, profileName?: string) => {
+    const name = profileName || 'Summary';
+    const dup = findDuplicate(recordingId, 'summary', name);
+    if (dup) {
+      setOverwriteConfirm({ profileId, profileName });
+    } else {
+      executeSendToAi(profileId, profileName);
+    }
+  };
+
   const promptProfiles = useSettingsStore((s) => s.promptProfiles);
 
-  const aiProfileItems = useMemo<DropdownItem[]>(() => {
-    if (promptProfiles.length === 0) {
-      return [{ label: 'No profiles — configure in Settings', action: () => {} }];
-    }
+  const defaultProfile = useMemo(() =>
+    promptProfiles.find((p) => p.is_default === 1) ?? promptProfiles[0],
+    [promptProfiles]
+  );
+
+  const aiProfileItems = useMemo<SplitButtonItem[]>(() => {
     return promptProfiles.map((p) => ({
       label: `${p.is_default ? '● ' : ''}${p.name}`,
-      action: () => handleSendToAi(p.id),
+      action: () => handleSendToAi(p.id, p.name),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptProfiles, recordingId]);
@@ -193,21 +208,18 @@ export default function AudioPlayer({ audioPath, recordingId, durationSeconds, o
           >
             Transcribe
           </button>
-          <Dropdown
-            trigger={
-              <button className="rounded-card border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-3">
-                Send to AI &#9662;
-              </button>
-            }
+          <SplitButton
+            label="Send to AI"
+            onPrimaryClick={() => defaultProfile && handleSendToAi(defaultProfile.id, defaultProfile.name)}
             items={aiProfileItems}
           />
           <Dropdown
             trigger={
               <button className="rounded-card border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-3">
-                Send to &#9662;
+                Reassign &#9662;
               </button>
             }
-            items={sendToItems}
+            items={reassignItems}
           />
         </div>
         <div
@@ -221,12 +233,61 @@ export default function AudioPlayer({ audioPath, recordingId, durationSeconds, o
         </div>
       </div>
 
-      {/* Status message */}
+      {/* Status message / processing bar */}
       {status && (
-        <p className={`mt-2 text-xs ${status.startsWith('Error') ? 'text-danger' : 'text-text-muted'}`}>
-          {status}
-        </p>
+        <div className="mt-2">
+          {(status.includes('Transcribing') || status.includes('summary') || status.includes('Generating')) ? (
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <svg className="animate-spin h-3 w-3 text-accent" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span className="text-xs font-medium text-accent">{status}</span>
+              </div>
+              <div className="h-1 w-full overflow-hidden rounded-full bg-surface-3">
+                <div
+                  className="h-full rounded-full bg-accent animate-[indeterminate_1.5s_ease-in-out_infinite]"
+                  style={{ width: '40%' }}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className={`text-xs ${status.startsWith('Error') ? 'text-danger' : 'text-text-muted'}`}>
+              {status}
+            </p>
+          )}
+        </div>
       )}
+      {/* Overwrite confirmation modal */}
+      <Modal
+        isOpen={overwriteConfirm !== null}
+        title="Overwrite Existing Card?"
+        onClose={() => setOverwriteConfirm(null)}
+        footer={
+          <>
+            <button
+              className="rounded-lg px-4 py-2 text-sm text-text-muted hover:bg-surface-2"
+              onClick={() => setOverwriteConfirm(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded-lg bg-accent px-4 py-2 text-sm text-white hover:opacity-90"
+              onClick={() => {
+                if (overwriteConfirm) executeSendToAi(overwriteConfirm.profileId, overwriteConfirm.profileName);
+                setOverwriteConfirm(null);
+              }}
+            >
+              Overwrite
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm">
+          A <strong>{overwriteConfirm?.profileName || 'Summary'}</strong> card already exists. This will regenerate and overwrite its content, including any action items.
+        </p>
+      </Modal>
     </div>
   );
 }

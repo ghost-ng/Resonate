@@ -11,6 +11,9 @@ const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     icon: './resources/icon',
+    extraResource: [
+      './resources/whisper',
+    ],
   },
   rebuildConfig: {},
   makers: [

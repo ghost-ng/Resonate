@@ -32,7 +32,7 @@ export class HighlightRepository {
         fields.recording_id,
         fields.segment_id,
         fields.highlight_type,
-        fields.color ?? '#5b8def',
+        fields.color ?? '#5B3DF5',
         fields.note ?? null,
         fields.reminder_date ?? null
       );

@@ -33,6 +33,10 @@ export function registerPromptProfileHandlers(profiles: PromptProfileRepository)
     })
   );
 
+  ipcMain.handle('prompt-profile:set-default', (_, args: { id: number }) =>
+    profiles.setDefault(args.id)
+  );
+
   ipcMain.handle('prompt-profile:delete', (_, args: { id: number }) => {
     profiles.delete(args.id);
   });

@@ -10,6 +10,7 @@ import AudioPlayer from './AudioPlayer';
 import AutoDetectBanner from './AutoDetectBanner';
 import WaveformVisualizer from './WaveformVisualizer';
 import PostRecordingControls from './PostRecordingControls';
+import ProcessingBar from './ProcessingBar';
 import TranscriptCard from '../transcript/TranscriptCard';
 import SummaryCard from '../summary/SummaryCard';
 import CardWorkspace from '../workspace/CardWorkspace';
@@ -44,9 +45,10 @@ export default function RecordingView() {
       const { recordingId, status } = data;
       console.log(`[RecordingView] Status changed: recording=${recordingId} status=${status}`);
       const store = useRecordingStore.getState();
+      // Always refresh recordings so the status badge/progress bar updates
+      store.fetchRecordings();
       if (status === 'complete' || status === 'summarizing') {
         store.fetchTranscript(recordingId);
-        store.fetchRecordings();
       }
       if (status === 'complete') {
         store.fetchSummary(recordingId);
@@ -64,6 +66,12 @@ export default function RecordingView() {
       fetchRecordings();
     }
   }, [activeTabId, fetchTranscript, fetchSummary, fetchRecordings]);
+
+  const handlePopout = async () => {
+    try {
+      await window.electronAPI.invoke('app:popout-recording', undefined);
+    } catch { /* ignore */ }
+  };
 
   const selectedNotebook = selectedNotebookId !== ALL_RECORDINGS_ID
     ? notebooks.find((n) => n.id === selectedNotebookId)
@@ -115,6 +123,21 @@ export default function RecordingView() {
         <div className="flex flex-col gap-4 p-4">
           <div className="flex items-center gap-4">
             <RecordButton />
+            <div className="flex-1" />
+            {recordingPhase === 'recording' && (
+              <button
+                onClick={handlePopout}
+                className="rounded-card border border-border bg-surface-2 p-1.5 text-text-muted transition-colors hover:bg-surface-3 hover:text-text"
+                title="Pop out to mini window"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 3 21 3 21 9" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <line x1="21" y1="3" x2="14" y2="10" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </svg>
+              </button>
+            )}
           </div>
           {recordingPhase === 'recording' && <WaveformVisualizer />}
           {recordingPhase === 'post-recording' && <PostRecordingControls />}
@@ -143,6 +166,21 @@ export default function RecordingView() {
         <div className="flex items-center gap-4">
           <RecordButton />
           <RecordingMetadata recording={recording} />
+          <div className="flex-1" />
+          {recordingPhase === 'recording' && (
+            <button
+              onClick={handlePopout}
+              className="rounded-card border border-border bg-surface-2 p-1.5 text-text-muted transition-colors hover:bg-surface-3 hover:text-text"
+              title="Pop out to mini window"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 3 21 3 21 9" />
+                <polyline points="9 21 3 21 3 15" />
+                <line x1="21" y1="3" x2="14" y2="10" />
+                <line x1="3" y1="21" x2="10" y2="14" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {recordingPhase === 'recording' && <WaveformVisualizer />}

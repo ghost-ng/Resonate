@@ -56,6 +56,12 @@ export function registerTranscriptHandlers(services: ServiceContainer): void {
         }))
       );
 
+      // Count unique speakers and update participant count
+      const uniqueSpeakers = new Set(segments.map((s) => s.speaker).filter(Boolean));
+      recordings.update(args.recordingId, {
+        participant_count: Math.max(1, uniqueSpeakers.size),
+      });
+
       // Update status
       const autoSummarize = services.settings.get('auto_summarize') === 'true';
       const nextStatus = autoSummarize ? 'summarizing' : 'complete';
@@ -66,6 +72,14 @@ export function registerTranscriptHandlers(services: ServiceContainer): void {
       sendStatusEvent(args.recordingId, 'error');
       throw err;
     }
+  });
+
+  ipcMain.handle('transcript:rename-speaker', (_, args: { transcriptId: number; originalName: string; displayName: string }) => {
+    return transcripts.renameSpeaker(args.transcriptId, args.originalName, args.displayName) ?? null;
+  });
+
+  ipcMain.handle('transcript:reassign-speakers', (_, args: { transcriptId: number; speakerCount: number }) => {
+    return transcripts.reassignSpeakers(args.transcriptId, args.speakerCount) ?? null;
   });
 }
 

@@ -84,6 +84,15 @@ export default function PromptProfileEditor() {
     setEditing(null);
   };
 
+  const handleSetDefault = async (id: number) => {
+    try {
+      await window.electronAPI.invoke('prompt-profile:set-default', { id });
+      await fetchPromptProfiles();
+    } catch {
+      // Error handling
+    }
+  };
+
   const handleDelete = async (id: number) => {
     try {
       await window.electronAPI.invoke('prompt-profile:delete', { id });
@@ -129,6 +138,14 @@ export default function PromptProfileEditor() {
                 )}
               </div>
               <div className="flex items-center gap-1">
+                {p.is_default !== 1 && (
+                  <button
+                    onClick={() => handleSetDefault(p.id)}
+                    className="rounded px-2 py-1 text-sm text-accent/70 hover:bg-surface-2 hover:text-accent transition-colors"
+                  >
+                    Set Default
+                  </button>
+                )}
                 <button
                   onClick={() => handleEdit(p)}
                   className="rounded px-2 py-1 text-sm text-text-muted hover:bg-surface-2 hover:text-text transition-colors"

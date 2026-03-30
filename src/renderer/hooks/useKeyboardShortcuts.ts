@@ -57,7 +57,7 @@ export function useKeyboardShortcuts() {
         // Ctrl+N — Open new notebook dialog (dispatched as custom event)
         case 'n': {
           e.preventDefault();
-          window.dispatchEvent(new CustomEvent('yourecord:new-notebook'));
+          window.dispatchEvent(new CustomEvent('resonate:new-notebook'));
           break;
         }
 

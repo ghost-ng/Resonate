@@ -115,3 +115,14 @@ Desktop.ini
 # Build artifacts
 dist/
 .claude/worktrees/
+
+# Resonate user data
+recordings/
+*.db-journal
+*.db-wal
+
+# Whisper models (large binaries)
+resources/whisper/models/
+
+# Superpowers docs (dev only)
+docs/superpowers/

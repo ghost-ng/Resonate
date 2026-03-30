@@ -1,17 +1,22 @@
 import { create } from 'zustand';
 import type { WorkspaceCard, CustomTask, TranscriptHighlight } from '../../shared/types/database.types';
+import type { SummaryWithActions } from '../../shared/types/ipc.types';
 
 interface WorkspaceState {
   cards: Record<number, WorkspaceCard[]>;
   tasks: Record<number, CustomTask[]>;
   highlights: Record<number, TranscriptHighlight[]>;
+  cardSummaries: Record<number, SummaryWithActions>; // keyed by card.id
 
   fetchCards: (recordingId: number) => Promise<void>;
   updateCard: (cardId: number, updates: Partial<Pick<WorkspaceCard, 'grid_col' | 'grid_row' | 'grid_w' | 'grid_h' | 'collapsed' | 'sort_order'>>, recordingId: number) => Promise<void>;
-  addCustomCard: (recordingId: number, title: string) => Promise<void>;
+  findDuplicateCard: (recordingId: number, cardType: string, title: string) => WorkspaceCard | undefined;
+  addCard: (recordingId: number, cardType: string, title: string, profileId?: number) => Promise<void>;
   renameCard: (cardId: number, title: string, recordingId: number) => Promise<void>;
   deleteCard: (cardId: number, recordingId: number) => Promise<void>;
   toggleCardCollapse: (cardId: number, collapsed: boolean, recordingId: number) => Promise<void>;
+
+  fetchCardSummary: (cardId: number, summaryId: number) => Promise<void>;
 
   fetchTasks: (cardId: number) => Promise<void>;
   addTask: (cardId: number, text: string, sourceSegmentId?: number) => Promise<void>;
@@ -23,10 +28,39 @@ interface WorkspaceState {
   removeHighlight: (highlightId: number, recordingId: number) => Promise<void>;
 }
 
+/** After generating a summary, ensure an action_items card exists and is uncollapsed. */
+async function ensureActionItemsCard(recordingId: number, get: () => WorkspaceState) {
+  const cards = get().cards[recordingId] ?? [];
+  const actionCard = cards.find((c) => c.card_type === 'action_items');
+
+  if (actionCard) {
+    // Uncollapse if hidden
+    if (actionCard.collapsed === 1) {
+      await window.electronAPI.invoke('workspace-card:update', { id: actionCard.id, collapsed: 0 });
+      await get().fetchCards(recordingId);
+    }
+  } else {
+    // Create a new action items card
+    const maxSort = cards.reduce((max, c) => Math.max(max, c.sort_order), -1);
+    await window.electronAPI.invoke('workspace-card:create', {
+      recording_id: recordingId,
+      card_type: 'action_items',
+      title: 'Action Items',
+      grid_col: 0,
+      grid_row: 0,
+      grid_w: 1,
+      grid_h: 1,
+      sort_order: maxSort + 1,
+    });
+    await get().fetchCards(recordingId);
+  }
+}
+
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   cards: {},
   tasks: {},
   highlights: {},
+  cardSummaries: {},
 
   fetchCards: async (recordingId) => {
     try {
@@ -43,7 +77,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   updateCard: async (cardId, updates, recordingId) => {
     try {
       await window.electronAPI.invoke('workspace-card:update', { id: cardId, ...updates });
-      // Update local state without re-fetching to avoid loops
       const current = get().cards[recordingId] ?? [];
       set({
         cards: {
@@ -58,22 +91,75 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
   },
 
-  addCustomCard: async (recordingId, title) => {
+  findDuplicateCard: (recordingId, cardType, title) => {
+    const existing = get().cards[recordingId] ?? [];
+    if (cardType === 'summary') {
+      return existing.find(c => c.card_type === 'summary' && c.title === title);
+    }
+    return existing.find(c => c.card_type === cardType);
+  },
+
+  addCard: async (recordingId, cardType, title, profileId) => {
     try {
       const existing = get().cards[recordingId] ?? [];
-      const maxRow = existing.reduce((max, c) => Math.max(max, c.grid_row + c.grid_h), 0);
+      const maxSort = existing.reduce((max, c) => Math.max(max, c.sort_order), -1);
+
+      // For summary cards with a profile, trigger generation first
+      let referenceId: number | undefined;
+      if (cardType === 'summary' && profileId) {
+        // Check if a card with the same profile title already exists (overwrite it)
+        const matchingCard = existing.find(
+          (c) => c.card_type === 'summary' && c.title === title
+        );
+
+        const result = await window.electronAPI.invoke('summary:generate', {
+          recordingId,
+          profileId,
+        });
+        if (result && typeof result === 'object' && 'summaryId' in result) {
+          referenceId = (result as { summaryId: number }).summaryId;
+        }
+
+        if (!referenceId) {
+          throw new Error('Summary generation produced no result');
+        }
+
+        // If a matching card exists, update its reference_id to the new summary
+        if (matchingCard) {
+          await window.electronAPI.invoke('workspace-card:update', {
+            id: matchingCard.id,
+            reference_id: referenceId,
+          });
+          const { [matchingCard.id]: _, ...restSummaries } = get().cardSummaries;
+          set({ cardSummaries: restSummaries });
+          await get().fetchCards(recordingId);
+          await get().fetchCardSummary(matchingCard.id, referenceId);
+          // Ensure action_items card exists and is visible
+          await ensureActionItemsCard(recordingId, get);
+          return;
+        }
+      }
+
       await window.electronAPI.invoke('workspace-card:create', {
         recording_id: recordingId,
-        card_type: 'custom_task',
+        card_type: cardType,
         title,
         grid_col: 0,
-        grid_row: maxRow,
+        grid_row: 0,
         grid_w: 1,
         grid_h: 1,
+        sort_order: maxSort + 1,
+        reference_id: referenceId,
       });
       await get().fetchCards(recordingId);
+
+      // After generating a summary, ensure action_items card exists and is visible
+      if (cardType === 'summary' && referenceId) {
+        await ensureActionItemsCard(recordingId, get);
+      }
     } catch (err) {
-      console.error('[workspace] addCustomCard failed:', err);
+      console.error('[workspace] addCard failed:', err);
+      throw err; // Re-throw so callers can show the error
     }
   },
 
@@ -97,7 +183,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   toggleCardCollapse: async (cardId, collapsed, recordingId) => {
     const colVal = collapsed ? 1 : 0;
-    // Update local state immediately for responsiveness
     const current = get().cards[recordingId] ?? [];
     set({
       cards: {
@@ -111,6 +196,17 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       await window.electronAPI.invoke('workspace-card:update', { id: cardId, collapsed: colVal });
     } catch (err) {
       console.error('[workspace] toggleCardCollapse failed:', err);
+    }
+  },
+
+  fetchCardSummary: async (cardId, summaryId) => {
+    try {
+      const result = await window.electronAPI.invoke('summary:get-by-id', { id: summaryId });
+      if (result) {
+        set({ cardSummaries: { ...get().cardSummaries, [cardId]: result } });
+      }
+    } catch (err) {
+      console.error('[workspace] fetchCardSummary failed:', err);
     }
   },
 

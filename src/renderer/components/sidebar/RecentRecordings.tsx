@@ -103,7 +103,7 @@ export default function RecentRecordings() {
     .filter((g) => g.recordings.length > 0);
 
   return (
-    <div className="flex flex-col gap-0.5 px-2">
+    <div className="flex flex-col gap-0.5 px-2" data-tutorial="recording-list">
       {/* Unassigned section */}
       {unassigned.length > 0 && (
         <>
