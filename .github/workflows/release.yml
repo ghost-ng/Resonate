@@ -53,6 +53,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Download Whisper binaries and model
+        run: node scripts/download-whisper.js
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
