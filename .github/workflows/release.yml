@@ -71,8 +71,13 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
-      - name: Build installer
-        run: npm run make -- --arch=x64 --platform=win32
+      - name: Package for Windows x64
+        run: npm run package -- --arch=x64 --platform=win32
+
+      - name: Create release zip
+        run: |
+          Compress-Archive -Path "out\Resonate-win32-x64\*" -DestinationPath "Resonate-${{ needs.check-version.outputs.version }}-win32-x64.zip"
+        shell: pwsh
 
       - name: Create git tag
         run: |
@@ -88,6 +93,4 @@ jobs:
           name: Resonate ${{ needs.check-version.outputs.version }}
           generate_release_notes: true
           files: |
-            out/make/**/*.exe
-            out/make/**/*.zip
-            out/make/**/*.nupkg
+            Resonate-${{ needs.check-version.outputs.version }}-win32-x64.zip
