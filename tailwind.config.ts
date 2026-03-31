@@ -5,22 +5,23 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: { DEFAULT: 'hsl(228, 20%, 9%)' },
+        bg: { DEFAULT: 'var(--color-bg)' },
         surface: {
-          DEFAULT: 'hsl(228, 18%, 14%)',
-          2: 'hsl(228, 16%, 18%)',
-          3: 'hsl(228, 14%, 22%)',
+          DEFAULT: 'var(--color-surface)',
+          2: 'var(--color-surface-2)',
+          3: 'var(--color-surface-3)',
         },
-        border: { DEFAULT: 'hsl(228, 12%, 26%)' },
-        text: { DEFAULT: '#e4e6ef', muted: '#8b90a5' },
+        border: { DEFAULT: 'var(--color-border)' },
+        text: { DEFAULT: 'var(--color-text)', muted: 'var(--color-text-muted)' },
         accent: {
-          DEFAULT: '#5b8def',
-          hover: '#6e9cf2',
-          glow: 'rgba(91, 141, 239, 0.15)',
+          DEFAULT: 'var(--color-accent)',
+          hover: 'var(--color-accent-hover)',
+          glow: 'var(--color-accent-glow)',
         },
-        success: '#00c853',
-        danger: '#ff5252',
-        recording: '#ff3b3b',
+        success: 'var(--color-success)',
+        danger: 'var(--color-danger)',
+        recording: 'var(--color-recording)',
+        info: 'var(--color-info)',
       },
       fontFamily: {
         sans: ['"Segoe UI"', 'system-ui', 'sans-serif'],
