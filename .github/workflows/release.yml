@@ -78,6 +78,18 @@ jobs:
       - name: Package for Windows x64
         run: npm run package -- --arch=x64 --platform=win32
 
+      - name: Install UPX
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-win64.zip" -OutFile upx.zip
+          Expand-Archive -Path upx.zip -DestinationPath upx-bin
+          Copy-Item "upx-bin\upx-4.2.4-win64\upx.exe" -Destination "."
+        shell: pwsh
+
+      - name: Compress with UPX
+        run: |
+          ./upx.exe --best --lzma "out/Resonate-win32-x64/Resonate.exe" || true
+        shell: pwsh
+
       - name: Create release zip
         run: |
           Compress-Archive -Path "out\Resonate-win32-x64\*" -DestinationPath "Resonate-${{ needs.check-version.outputs.version }}-win32-x64.zip"

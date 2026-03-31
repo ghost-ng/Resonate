@@ -6,6 +6,8 @@ import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -30,6 +32,22 @@ const config: ForgeConfig = {
       /^\/postcss\.config/,
       /^\/yourecord-ui-playground/,
       /^\/README\.md$/,
+    ],
+    // Hook to strip non-English locales after packaging
+    afterCopy: [
+      (buildPath: string, _electronVersion: string, _platform: string, _arch: string, callback: (err?: Error | null) => void) => {
+        const localesDir = path.join(buildPath, '..', 'locales');
+        if (fs.existsSync(localesDir)) {
+          const keep = new Set(['en-US.pak', 'en-GB.pak']);
+          for (const file of fs.readdirSync(localesDir)) {
+            if (!keep.has(file)) {
+              try { fs.unlinkSync(path.join(localesDir, file)); } catch { /* ignore */ }
+            }
+          }
+          console.log('[Forge] Stripped non-English locales');
+        }
+        callback();
+      },
     ],
   },
   rebuildConfig: {},
