@@ -121,8 +121,8 @@ recordings/
 *.db-journal
 *.db-wal
 
-# Whisper models downloaded by user (not the bundled one)
-# resources/whisper/models/ is tracked via Git LFS
+# Assembled whisper model (reconstructed from split parts)
+resources/whisper/models/ggml-base.en.bin
 
 # Superpowers docs (dev only)
 docs/superpowers/

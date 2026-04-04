@@ -1,11 +1,12 @@
 {
   "name": "resonate",
   "productName": "Resonate",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Desktop recording and note-taking app",
   "main": ".vite/build/index.js",
   "private": true,
   "scripts": {
+    "postinstall": "node scripts/reassemble-model.js",
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",

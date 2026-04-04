@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -33,6 +33,9 @@ jobs:
 
       - name: Install dependencies (skip native scripts)
         run: npm ci --ignore-scripts
+
+      - name: Reassemble whisper model
+        run: node scripts/reassemble-model.js
 
       - name: Rebuild native modules for Electron
         run: npx @electron/rebuild

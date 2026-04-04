@@ -32,12 +32,34 @@ const WHISPER_EXE = () => {
 
 const DEFAULT_MODEL = () => path.join(WHISPER_DIR(), 'models', 'ggml-base.en.bin');
 
+/** Reassemble split model parts if the full model doesn't exist yet. */
+function ensureModel(modelPath: string): void {
+  if (fs.existsSync(modelPath)) return;
+  const dir = path.dirname(modelPath);
+  const prefix = path.basename(modelPath) + '.part_';
+  const parts = fs.existsSync(dir)
+    ? fs.readdirSync(dir).filter(f => f.startsWith(prefix)).sort()
+    : [];
+  if (parts.length === 0) return;
+
+  console.log(`[Whisper] Reassembling ${parts.length} model parts...`);
+  const fd = fs.openSync(modelPath, 'w');
+  for (const part of parts) {
+    fs.writeSync(fd, fs.readFileSync(path.join(dir, part)));
+  }
+  fs.closeSync(fd);
+  console.log(`[Whisper] Model reassembled: ${(fs.statSync(modelPath).size / 1048576).toFixed(1)} MB`);
+}
+
 export class WhisperEngine implements SttEngine {
   readonly name = 'whisper' as const;
 
   async transcribe(wavPath: string, config: SttEngineConfig): Promise<TranscriptSegment[]> {
     const exePath = WHISPER_EXE();
     const modelPath = config.modelPath || DEFAULT_MODEL();
+
+    // Reassemble model from split parts if needed
+    ensureModel(modelPath);
 
     if (!fs.existsSync(exePath)) {
       throw new Error(`whisper-cli.exe not found at ${exePath}. Place whisper-cli.exe in resources/whisper/.`);
