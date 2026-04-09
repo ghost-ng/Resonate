@@ -1,0 +1,106 @@
+stages:
+  - check
+  - build
+  - release
+
+variables:
+  NODE_VERSION: "20"
+
+# -------------------------------------------------------------------
+# Check if version tag already exists — skip release if so
+# -------------------------------------------------------------------
+check-version:
+  stage: check
+  image: node:${NODE_VERSION}
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+      changes:
+        - package.json
+  script:
+    - VERSION="v$(node -p "require('./package.json').version")"
+    - echo "VERSION=$VERSION" >> check.env
+    - |
+      if git tag -l "$VERSION" | grep -q "$VERSION"; then
+        echo "TAG_EXISTS=true" >> check.env
+      else
+        echo "TAG_EXISTS=false" >> check.env
+      fi
+    - cat check.env
+  artifacts:
+    reports:
+      dotenv: check.env
+
+# -------------------------------------------------------------------
+# Build for Windows x64 on every push to main/master
+# -------------------------------------------------------------------
+build:
+  stage: build
+  tags:
+    - windows
+    - shared-windows
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+  before_script:
+    - choco install nodejs --version=$NODE_VERSION -y --no-progress 2>$null; $true
+    - choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y --no-progress 2>$null; $true
+    - $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    - npm install -g cmake-js @electron/rebuild
+  script:
+    - npm ci --ignore-scripts
+    - node scripts/reassemble-model.js
+    - npx @electron/rebuild
+    - npx tsc --noEmit
+    - npm run package -- --arch=x64 --platform=win32
+  artifacts:
+    name: "Resonate-win32-x64"
+    paths:
+      - out/Resonate-win32-x64/
+    expire_in: 14 days
+
+# -------------------------------------------------------------------
+# Create tag + GitLab release when version bumps
+# -------------------------------------------------------------------
+release:
+  stage: release
+  image: node:${NODE_VERSION}
+  needs:
+    - job: check-version
+      artifacts: true
+    - job: build
+      artifacts: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+      changes:
+        - package.json
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq zip curl > /dev/null
+    # Install release-cli
+    - |
+      curl -L --output /usr/local/bin/release-cli \
+        "https://gitlab.com/api/v4/projects/gitlab-org%2Frelease-cli/packages/generic/release-cli/latest/release-cli-linux-amd64"
+    - chmod +x /usr/local/bin/release-cli
+  script:
+    - |
+      if [ "$TAG_EXISTS" = "true" ]; then
+        echo "Tag $VERSION already exists, skipping release."
+        exit 0
+      fi
+    - echo "Creating release $VERSION"
+    # Zip the build artifact
+    - cd out/Resonate-win32-x64 && zip -r ../../Resonate-${VERSION}-win32-x64.zip . && cd ../..
+    # Upload to GitLab generic package registry
+    - |
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        --upload-file "Resonate-${VERSION}-win32-x64.zip" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/resonate/${VERSION}/Resonate-${VERSION}-win32-x64.zip"
+    # Create tag
+    - |
+      curl --request POST --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags?tag_name=${VERSION}&ref=${CI_COMMIT_SHA}"
+    # Create release with asset link
+    - |
+      release-cli create \
+        --name "Resonate ${VERSION}" \
+        --tag-name "${VERSION}" \
+        --description "Release ${VERSION}" \
+        --assets-link "{\"name\":\"Resonate-${VERSION}-win32-x64.zip\",\"url\":\"${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/resonate/${VERSION}/Resonate-${VERSION}-win32-x64.zip\",\"link_type\":\"package\"}"
