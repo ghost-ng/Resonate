@@ -31,17 +31,16 @@ check-version:
       dotenv: check.env
 
 # -------------------------------------------------------------------
-# Build for Windows x64 on every push to main/master
+# Build for Windows x64 using GitLab SaaS Windows runner
 # -------------------------------------------------------------------
 build:
   stage: build
   tags:
-    - windows
-    - shared-windows
+    - saas-windows-medium-amd64
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
   before_script:
-    - choco install nodejs --version=$NODE_VERSION -y --no-progress 2>$null; $true
+    - choco install nodejs --version=${NODE_VERSION} -y --no-progress 2>$null; $true
     - choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y --no-progress 2>$null; $true
     - $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     - npm install -g cmake-js @electron/rebuild
@@ -74,7 +73,6 @@ release:
         - package.json
   before_script:
     - apt-get update -qq && apt-get install -y -qq zip curl > /dev/null
-    # Install release-cli
     - |
       curl -L --output /usr/local/bin/release-cli \
         "https://gitlab.com/api/v4/projects/gitlab-org%2Frelease-cli/packages/generic/release-cli/latest/release-cli-linux-amd64"
@@ -86,18 +84,14 @@ release:
         exit 0
       fi
     - echo "Creating release $VERSION"
-    # Zip the build artifact
     - cd out/Resonate-win32-x64 && zip -r ../../Resonate-${VERSION}-win32-x64.zip . && cd ../..
-    # Upload to GitLab generic package registry
     - |
       curl --header "JOB-TOKEN: $CI_JOB_TOKEN" \
         --upload-file "Resonate-${VERSION}-win32-x64.zip" \
         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/resonate/${VERSION}/Resonate-${VERSION}-win32-x64.zip"
-    # Create tag
     - |
       curl --request POST --header "JOB-TOKEN: $CI_JOB_TOKEN" \
         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags?tag_name=${VERSION}&ref=${CI_COMMIT_SHA}"
-    # Create release with asset link
     - |
       release-cli create \
         --name "Resonate ${VERSION}" \
