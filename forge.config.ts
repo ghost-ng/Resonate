@@ -33,9 +33,10 @@ const config: ForgeConfig = {
       /^\/yourecord-ui-playground/,
       /^\/README\.md$/,
     ],
-    // Hook to strip non-English locales after packaging
+    // Hook to strip non-English locales and whisper model parts after packaging
     afterCopy: [
       (buildPath: string, _electronVersion: string, _platform: string, _arch: string, callback: (err?: Error | null) => void) => {
+        // Strip non-English locales
         const localesDir = path.join(buildPath, '..', 'locales');
         if (fs.existsSync(localesDir)) {
           const keep = new Set(['en-US.pak', 'en-GB.pak']);
@@ -46,6 +47,18 @@ const config: ForgeConfig = {
           }
           console.log('[Forge] Stripped non-English locales');
         }
+
+        // Remove whisper model split parts (the assembled .bin is what we need)
+        const modelsDir = path.join(buildPath, '..', 'whisper', 'models');
+        if (fs.existsSync(modelsDir)) {
+          for (const file of fs.readdirSync(modelsDir)) {
+            if (file.includes('.part_')) {
+              try { fs.unlinkSync(path.join(modelsDir, file)); } catch { /* ignore */ }
+            }
+          }
+          console.log('[Forge] Removed whisper model split parts');
+        }
+
         callback();
       },
     ],
